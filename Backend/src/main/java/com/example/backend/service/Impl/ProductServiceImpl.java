@@ -15,6 +15,7 @@ import com.example.backend.dao.ProductMapper;
 import com.example.backend.dto.ProductDTO;
 import com.example.backend.entity.Product;
 import com.example.backend.service.ProductService;
+import com.example.backend.service.ProductEmbeddingService;
 import com.example.backend.utils.FileUtils;
 import com.example.backend.vo.ProductVO;
 
@@ -29,6 +30,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private FileUtils fileUtils;
+
+    @Autowired
+    private ProductEmbeddingService productEmbeddingService;
 
     /**
      * 添加新商品
@@ -64,6 +68,7 @@ public class ProductServiceImpl implements ProductService {
         
         product.setCreatedAt(LocalDateTime.now());
         productMapper.insert(product);
+        productEmbeddingService.updateProductEmbedding(product);
     }
 
     /**
@@ -106,6 +111,7 @@ public class ProductServiceImpl implements ProductService {
             product.setImageUrls(finalImageUrls);
             
             productMapper.update(product);
+            productEmbeddingService.updateProductEmbedding(product);
         }
     }
 
@@ -129,6 +135,7 @@ public class ProductServiceImpl implements ProductService {
 
         // 删除数据库记录
         productMapper.deleteById(id);
+        productEmbeddingService.deleteProductEmbedding(id);
     }
 
     /**

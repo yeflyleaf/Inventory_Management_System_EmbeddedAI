@@ -6,9 +6,9 @@
 version: '3.8'
 
 services:
-  # --- Redis 缓存服务 ---
+  # --- Redis 缓存与向量数据库服务 ---
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack-server:latest
     container_name: inventory_redis
     expose:
       - "6379" # 仅内部访问

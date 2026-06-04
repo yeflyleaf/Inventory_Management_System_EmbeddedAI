@@ -1,0 +1,109 @@
+package com.example.backend.config;
+
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
+import dev.langchain4j.store.embedding.EmbeddingStore;
+import dev.langchain4j.store.embedding.redis.RedisEmbeddingStore;
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.StreamingChatLanguageModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
+import dev.langchain4j.service.AiServices;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import com.example.backend.service.WarehouseAiAssistant;
+import com.example.backend.service.WarehouseTools;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableAsync;
+
+import java.time.Duration;
+
+@Configuration
+@EnableAsync
+public class AiVectorConfig {
+
+    @Value("${spring.data.redis.host:localhost}")
+    private String redisHost;
+
+    @Value("${spring.data.redis.port:6379}")
+    private int redisPort;
+
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
+
+    @Value("${redis.vector.store.index-name:item_index}")
+    private String indexName;
+
+    @Value("${redis.vector.store.dimension:384}")
+    private int dimension;
+
+    @Value("${langchain4j.open-ai.chat-model.base-url:https://api.openai.com/v1}")
+    private String chatBaseUrl;
+
+    @Value("${langchain4j.open-ai.chat-model.api-key:demo}")
+    private String chatApiKey;
+
+    @Value("${langchain4j.open-ai.chat-model.model-name:gpt-4o}")
+    private String chatModelName;
+
+    @Value("${langchain4j.open-ai.chat-model.temperature:0.7}")
+    private Double chatTemperature;
+
+    @Bean
+    public EmbeddingModel embeddingModel() {
+        return new AllMiniLmL6V2EmbeddingModel();
+    }
+
+    @Bean
+    public EmbeddingStore<TextSegment> embeddingStore() {
+        RedisEmbeddingStore.Builder builder = RedisEmbeddingStore.builder()
+                .host(redisHost)
+                .port(redisPort)
+                .indexName(indexName)
+                .dimension(dimension);
+        
+        if (redisPassword != null && !redisPassword.trim().isEmpty()) {
+            builder.password(redisPassword);
+        }
+        
+        return builder.build();
+    }
+
+    @Bean
+    public ChatLanguageModel chatLanguageModel() {
+        return OpenAiChatModel.builder()
+                .baseUrl(chatBaseUrl)
+                .apiKey(chatApiKey)
+                .modelName(chatModelName)
+                .temperature(chatTemperature)
+                .timeout(Duration.ofSeconds(60))
+                .build();
+    }
+
+    @Bean
+    public StreamingChatLanguageModel streamingChatLanguageModel() {
+        return OpenAiStreamingChatModel.builder()
+                .baseUrl(chatBaseUrl)
+                .apiKey(chatApiKey)
+                .modelName(chatModelName)
+                .temperature(chatTemperature)
+                .timeout(Duration.ofSeconds(60))
+                .build();
+    }
+
+    @Bean
+    public WarehouseAiAssistant warehouseAiAssistant(
+            StreamingChatLanguageModel streamingChatLanguageModel,
+            ChatLanguageModel chatLanguageModel,
+            WarehouseTools warehouseTools) {
+        
+        return AiServices.builder(WarehouseAiAssistant.class)
+                .streamingChatLanguageModel(streamingChatLanguageModel)
+                .chatLanguageModel(chatLanguageModel)
+                .tools(warehouseTools)
+                .chatMemoryProvider(userId -> MessageWindowChatMemory.withMaxMessages(10))
+                .build();
+    }
+}

@@ -93,10 +93,12 @@
         <router-view></router-view>
       </div>
     </main>
+    <AiAssistant />
   </div>
 </template>
 
 <script setup>
+import AiAssistant from '@/components/AiAssistant.vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
 import { computed, onMounted } from 'vue'
