@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.dao.StockFlowMapper">
+
+    <!-- 库存流水映射 -->
+    <resultMap id="BaseResultMap" type="com.example.backend.entity.StockFlow">
+        <id column="id" property="id" />
+        <result column="item_id" property="itemId" />
+        <result column="change_amount" property="changeAmount" />
+        <result column="change_type" property="changeType" />
+        <result column="ref_type" property="refType" />
+        <result column="ref_id" property="refId" />
+        <result column="warehouse_id" property="warehouseId" />
+        <result column="created_at" property="createdAt" />
+    </resultMap>
+
+    <!-- 插入库存流水 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO stock_flow (item_id, change_amount, change_type, ref_type, ref_id, warehouse_id, created_at)
+        VALUES (#{itemId}, #{changeAmount}, #{changeType}, #{refType}, #{refId}, #{warehouseId}, #{createdAt})
+    </insert>
+
+    <!-- 查询所有库存流水 -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM stock_flow ORDER BY created_at DESC
+    </select>
+
+    <!-- 根据商品ID查询库存流水 -->
+    <select id="selectByItemId" resultMap="BaseResultMap">
+        SELECT * FROM stock_flow WHERE item_id = #{itemId} ORDER BY created_at DESC
+    </select>
+
+    <!-- 统计商品在指定仓库的库存总量 -->
+    <select id="sumStockByItemIdAndWarehouseId" resultType="java.lang.Integer">
+        SELECT COALESCE(SUM(change_amount), 0)
+        FROM stock_flow
+        WHERE item_id = #{itemId}
+        <if test="warehouseId != null">
+            AND warehouse_id = #{warehouseId}
+        </if>
+    </select>
+
+    <!-- 查询最近的N条库存流水 -->
+    <select id="selectRecent" resultMap="BaseResultMap">
+        SELECT * FROM stock_flow ORDER BY created_at DESC LIMIT #{limit}
+    </select>
+
+    <!-- 根据商品ID删除库存流水 -->
+    <delete id="deleteByItemId">
+        DELETE FROM stock_flow WHERE item_id = #{itemId}
+    </delete>
+
+    <!-- 获取所有有变动的商品ID -->
+    <select id="selectDistinctItemIds" resultType="java.lang.Long">
+        SELECT DISTINCT item_id FROM stock_flow
+    </select>
+
+    <!-- 查询每日库存变动统计 -->
+    <select id="selectDailyStats" resultType="com.example.backend.vo.StockFlowDailyStatsVO">
+        SELECT 
+            DATE_FORMAT(sf.created_at, '%Y-%m-%d') as date,
+            SUM(CASE WHEN sf.change_amount > 0 THEN sf.change_amount ELSE 0 END) as inQuantity,
+            SUM(CASE WHEN sf.change_amount &lt; 0 THEN ABS(sf.change_amount) ELSE 0 END) as outQuantity
+        FROM stock_flow sf
+        <if test="category != null or itemName != null">
+            JOIN item i ON sf.item_id = i.id
+        </if>
+        WHERE sf.created_at >= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+        <if test="warehouseId != null">
+            AND sf.warehouse_id = #{warehouseId}
+        </if>
+        <if test="category != null and category != ''">
+            AND i.category = #{category}
+        </if>
+        <if test="itemName != null and itemName != ''">
+            AND i.name LIKE CONCAT('%', #{itemName}, '%')
+        </if>
+        GROUP BY DATE_FORMAT(sf.created_at, '%Y-%m-%d')
+        ORDER BY date ASC
+    </select>
+
+    <!-- 获取近期有变动的商品ID -->
+    <select id="selectDistinctItemIdsRecent" resultType="java.lang.Long">
+        SELECT DISTINCT item_id FROM stock_flow
+        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+    </select>
+
+    <!-- 获取每个商品的最后变动时间 -->
+    <select id="selectLastMovements" resultType="java.util.Map">
+        SELECT item_id as itemId, MAX(created_at) as lastDate
+        FROM stock_flow
+        GROUP BY item_id
+    </select>
+
+</mapper>

@@ -1,0 +1,50 @@
+# ============================================================================
+# Docker 构建忽略列表
+# 这些文件不会被复制到 Docker 构建上下文中
+# ============================================================================
+
+# ================================
+# 通用忽略
+# ================================
+.git
+.gitignore
+*.md
+!README.md
+*.log
+.env
+.env.local
+.env.*.local
+*.docx
+*.doc
+
+# IDE 配置
+.vscode
+.idea
+*.swp
+*.swo
+*.iml
+
+# ================================
+# 后端 (Backend) 忽略
+# ================================
+Backend/target
+Backend/logs
+Backend/uploads
+Backend/test-data
+
+# ================================
+# 前端 (Frontend) 忽略
+# ================================
+Frontend/node_modules
+Frontend/dist
+Frontend/dist_electron
+Frontend/test-results
+Frontend/playwright-report
+Frontend/e2e
+
+# ================================
+# Docker 相关（避免循环）
+# ================================
+docker-compose.yml
+Dockerfile
+.dockerignore

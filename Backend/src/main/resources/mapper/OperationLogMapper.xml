@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.dao.OperationLogMapper">
+    
+    <!-- 操作日志实体映射 -->
+    <resultMap id="OperationLogMap" type="com.example.backend.entity.OperationLog">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="username" column="username"/>
+        <result property="module" column="module"/>
+        <result property="action" column="action"/>
+        <result property="target" column="target"/>
+        <result property="targetId" column="target_id"/>
+        <result property="description" column="description"/>
+        <result property="ipAddress" column="ip_address"/>
+        <result property="userAgent" column="user_agent"/>
+        <result property="requestMethod" column="request_method"/>
+        <result property="requestUrl" column="request_url"/>
+        <result property="requestParams" column="request_params"/>
+        <result property="responseStatus" column="response_status"/>
+        <result property="executionTime" column="execution_time"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+    
+    <!-- 插入操作日志 -->
+    <insert id="insert" parameterType="com.example.backend.entity.OperationLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO operation_log (user_id, username, module, action, target, target_id, description, 
+                                   ip_address, user_agent, request_method, request_url, request_params, 
+                                   response_status, execution_time, created_at)
+        VALUES (#{userId}, #{username}, #{module}, #{action}, #{target}, #{targetId}, #{description},
+                #{ipAddress}, #{userAgent}, #{requestMethod}, #{requestUrl}, #{requestParams},
+                #{responseStatus}, #{executionTime}, #{createdAt})
+    </insert>
+    
+    <!-- 分页查询操作日志 -->
+    <select id="findByCondition" resultMap="OperationLogMap">
+        SELECT * FROM operation_log
+        <where>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="username != null and username != ''">
+                AND username LIKE CONCAT('%', #{username}, '%')
+            </if>
+            <if test="module != null and module != ''">
+                AND module = #{module}
+            </if>
+            <if test="action != null and action != ''">
+                AND action = #{action}
+            </if>
+            <if test="startTime != null">
+                AND created_at >= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND created_at &lt;= #{endTime}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{size}
+    </select>
+    
+    <!-- 统计总数 -->
+    <select id="countByCondition" resultType="int">
+        SELECT COUNT(*) FROM operation_log
+        <where>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="username != null and username != ''">
+                AND username LIKE CONCAT('%', #{username}, '%')
+            </if>
+            <if test="module != null and module != ''">
+                AND module = #{module}
+            </if>
+            <if test="action != null and action != ''">
+                AND action = #{action}
+            </if>
+            <if test="startTime != null">
+                AND created_at >= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND created_at &lt;= #{endTime}
+            </if>
+        </where>
+    </select>
+    
+    <!-- 获取所有模块名称（用于筛选） -->
+    <select id="findAllModules" resultType="string">
+        SELECT DISTINCT module FROM operation_log 
+        WHERE module IS NOT NULL AND module != '' 
+        ORDER BY module
+    </select>
+    
+    <!-- 清理旧日志（保留指定天数内的） -->
+    <delete id="deleteOlderThan">
+        DELETE FROM operation_log WHERE created_at &lt; #{beforeDate}
+    </delete>
+    
+    <!-- 统计今日操作数 -->
+    <select id="countToday" resultType="int">
+        SELECT COUNT(*) FROM operation_log WHERE DATE(created_at) = CURDATE()
+    </select>
+    
+    <!-- 获取最近的操作日志 -->
+    <select id="findRecent" resultMap="OperationLogMap">
+        SELECT * FROM operation_log ORDER BY created_at DESC LIMIT #{limit}
+    </select>
+    
+</mapper>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.dao.SaleOrderItemMapper">
+
+    <!-- 销售订单明细映射 -->
+    <resultMap id="BaseResultMap" type="com.example.backend.entity.SaleOrderItem">
+        <id column="id" property="id" />
+        <result column="sales_order_id" property="salesOrderId" />
+        <result column="item_id" property="itemId" />
+        <result column="qty" property="qty" />
+        <result column="sale_price" property="salePrice" />
+        <result column="subtotal" property="subtotal" />
+    </resultMap>
+
+    <!-- 插入销售订单明细 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sales_order_item (sales_order_id, item_id, qty, sale_price, subtotal)
+        VALUES (#{salesOrderId}, #{itemId}, #{qty}, #{salePrice}, #{subtotal})
+    </insert>
+
+    <!-- 根据订单ID删除所有明细 -->
+    <delete id="deleteByOrderId">
+        DELETE FROM sales_order_item WHERE sales_order_id = #{orderId}
+    </delete>
+
+    <!-- 根据订单ID查询所有明细 -->
+    <select id="selectByOrderId" resultMap="BaseResultMap">
+        SELECT * FROM sales_order_item WHERE sales_order_id = #{orderId}
+    </select>
+
+    <!-- 删除所有明细（慎用） -->
+    <delete id="deleteAll">
+        DELETE FROM sales_order_item
+    </delete>
+
+    <!-- 按分类统计销售数量（前5名） -->
+    <select id="selectSalesQtyByCategory" resultType="com.example.backend.vo.CategoryStatsVO">
+        SELECT i.category, SUM(soi.qty) as value
+        FROM sales_order_item soi
+        JOIN item i ON soi.item_id = i.id
+        GROUP BY i.category
+        ORDER BY value DESC
+        LIMIT 5
+    </select>
+
+    <!-- 按分类统计销售金额（前5名） -->
+    <select id="selectSalesAmountByCategory" resultType="com.example.backend.vo.CategoryStatsVO">
+        SELECT i.category, SUM(soi.subtotal) as value
+        FROM sales_order_item soi
+        JOIN item i ON soi.item_id = i.id
+        GROUP BY i.category
+        ORDER BY value DESC
+        LIMIT 5
+    </select>
+
+</mapper>

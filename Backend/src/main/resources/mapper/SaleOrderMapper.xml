@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.dao.SaleOrderMapper">
+
+    <!-- 销售订单映射 -->
+    <resultMap id="BaseResultMap" type="com.example.backend.entity.SaleOrder">
+        <id column="id" property="id" />
+        <result column="order_no" property="orderNo" />
+        <result column="customer_id" property="customerId" />
+        <result column="total_amount" property="totalAmount" />
+        <result column="status" property="status" />
+        <result column="created_at" property="createdAt" />
+        <result column="created_by" property="createdBy" />
+    </resultMap>
+
+    <!-- 创建销售订单 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sales_order (order_no, customer_id, total_amount, status, created_at, created_by)
+        VALUES (#{orderNo}, #{customerId}, #{totalAmount}, #{status}, #{createdAt}, #{createdBy})
+    </insert>
+
+    <!-- 更新销售订单 -->
+    <update id="update">
+        UPDATE sales_order
+        SET customer_id = #{customerId},
+            total_amount = #{totalAmount},
+            status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除销售订单 -->
+    <delete id="deleteById">
+        DELETE FROM sales_order WHERE id = #{id}
+    </delete>
+
+    <!-- 根据ID查询销售订单 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM sales_order WHERE id = #{id}
+    </select>
+
+    <!-- 查询所有销售订单 -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM sales_order
+    </select>
+
+    <!-- 统计今日销售总额 -->
+    <select id="sumTodaySales" resultType="java.math.BigDecimal">
+        SELECT IFNULL(SUM(total_amount), 0) FROM sales_order WHERE DATE(created_at) = CURDATE()
+    </select>
+
+    <!-- 删除所有销售订单（慎用） -->
+    <delete id="deleteAll">
+        DELETE FROM sales_order
+    </delete>
+
+    <!-- 根据状态统计订单数量 -->
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*) FROM sales_order WHERE status = #{status}
+    </select>
+
+</mapper>

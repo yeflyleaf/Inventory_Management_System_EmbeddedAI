@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.dao.WarehouseMapper">
+
+    <!-- 仓库实体映射 -->
+    <resultMap id="BaseResultMap" type="com.example.backend.entity.Warehouse">
+        <id column="id" property="id" />
+        <result column="name" property="name" />
+        <result column="address" property="address" />
+        <result column="created_at" property="createdAt" />
+    </resultMap>
+
+    <!-- 插入仓库 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO warehouse (name, address, created_at)
+        VALUES (#{name}, #{address}, #{createdAt})
+    </insert>
+
+    <!-- 更新仓库信息 -->
+    <update id="update">
+        UPDATE warehouse
+        SET name = #{name},
+            address = #{address}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除仓库 -->
+    <delete id="deleteById">
+        DELETE FROM warehouse WHERE id = #{id}
+    </delete>
+
+    <!-- 根据ID查询仓库 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM warehouse WHERE id = #{id}
+    </select>
+
+    <!-- 查询所有仓库 -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM warehouse
+    </select>
+
+</mapper>

@@ -1,0 +1,119 @@
+# ============================================================================
+# 进销存系统 - Docker Compose 配置
+# 使用方法: docker-compose up -d --build
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # --- Redis 缓存服务 ---
+  redis:
+    image: redis:7-alpine
+    container_name: inventory_redis
+    expose:
+      - "6379" # 仅内部访问
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    networks:
+      - inventory_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # --- 后端服务 (Spring Boot) ---
+  backend:
+    image: yeflyleaf/springboot-backend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    container_name: inventory_backend
+    expose:
+      - "8080" # 仅通过 Nginx 访问
+    environment:
+      # 数据库配置 (连接宿主机 MySQL)
+      - SPRING_DATASOURCE_URL=jdbc:mysql://${MYSQL_HOST:-host.docker.internal}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE:-demo1}?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${MYSQL_USERNAME:-user1}
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-user1}
+      # Redis 配置
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      # 应用配置
+      - SERVER_PORT=8080
+      - TZ=${TZ:-Asia/Shanghai}
+      - JAVA_OPTS=${JAVA_OPTS:-Xms512m -Xmx512m -XX:+UseG1GC}
+      # 覆盖 application.properties 中的 Windows 路径，确保写入挂载点 /app/uploads
+      - FILE_UPLOAD_PATH=/app/uploads
+    volumes:
+      - D:/OneDrive/Desktop/Uploads:/app/uploads
+      - D:/OneDrive/Desktop/Logs/Backend:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - inventory_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # --- 前端服务 (Nginx) ---
+  nginx:
+    image: yeflyleaf/nginx-frontend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+    container_name: inventory_nginx
+    ports:
+      - "80:80"
+      # - "443:443"
+    volumes:
+      # - ./ssl:/etc/nginx/ssl:ro
+      - D:/OneDrive/Desktop/Logs/Nginx:/var/log/nginx
+    environment:
+      - TZ=${TZ:-Asia/Shanghai}
+      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - inventory_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  redis_data:
+  # backend_uploads:
+  # backend_logs:
+  # nginx_logs:
+
+networks:
+  inventory_network:
+    driver: bridge

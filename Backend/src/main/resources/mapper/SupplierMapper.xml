@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.dao.SupplierMapper">
+
+    <!-- 供应商实体映射 -->
+    <resultMap id="BaseResultMap" type="com.example.backend.entity.Supplier">
+        <id column="id" property="id" />
+        <result column="name" property="name" />
+        <result column="contact_person" property="contactPerson" />
+        <result column="phone" property="phone" />
+        <result column="phone2" property="phone2" />
+        <result column="address" property="address" />
+        <result column="created_at" property="createdAt" />
+    </resultMap>
+
+    <!-- 插入供应商 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO supplier (name, contact_person, phone, phone2, address, created_at)
+        VALUES (#{name}, #{contactPerson}, #{phone}, #{phone2}, #{address}, #{createdAt})
+    </insert>
+
+    <!-- 更新供应商信息 -->
+    <update id="update">
+        UPDATE supplier
+        SET name = #{name},
+            contact_person = #{contactPerson},
+            phone = #{phone},
+            phone2 = #{phone2},
+            address = #{address}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除供应商 -->
+    <delete id="deleteById">
+        DELETE FROM supplier WHERE id = #{id}
+    </delete>
+
+    <!-- 根据ID查询供应商 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM supplier WHERE id = #{id}
+    </select>
+
+    <!-- 查询所有供应商 -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM supplier
+    </select>
+
+    <!-- 根据名称统计供应商数量（用于查重） -->
+    <select id="countByName" resultType="int">
+        SELECT COUNT(*) FROM supplier
+        WHERE name = #{name}
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+</mapper>

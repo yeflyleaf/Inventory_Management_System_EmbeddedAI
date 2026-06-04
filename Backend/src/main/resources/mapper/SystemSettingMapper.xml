@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.dao.SystemSettingMapper">
+    
+    <!-- 系统设置实体映射 -->
+    <resultMap id="SystemSettingMap" type="com.example.backend.entity.SystemSetting">
+        <id property="id" column="id"/>
+        <result property="settingKey" column="setting_key"/>
+        <result property="settingValue" column="setting_value"/>
+        <result property="settingType" column="setting_type"/>
+        <result property="description" column="description"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+    
+    <!-- 获取所有设置 -->
+    <select id="findAll" resultMap="SystemSettingMap">
+        SELECT * FROM system_setting ORDER BY id
+    </select>
+    
+    <!-- 根据键获取设置 -->
+    <select id="findByKey" resultMap="SystemSettingMap">
+        SELECT * FROM system_setting WHERE setting_key = #{key}
+    </select>
+    
+    <!-- 更新设置值 -->
+    <update id="updateValue">
+        UPDATE system_setting SET setting_value = #{value}, updated_at = NOW() 
+        WHERE setting_key = #{key}
+    </update>
+    
+    <!-- 批量更新设置 -->
+    <update id="batchUpdate" parameterType="list">
+        <foreach collection="list" item="item" separator=";">
+            UPDATE system_setting SET setting_value = #{item.settingValue}, updated_at = NOW() 
+            WHERE setting_key = #{item.settingKey}
+        </foreach>
+    </update>
+    
+    <!-- 插入新设置 -->
+    <insert id="insert" parameterType="com.example.backend.entity.SystemSetting" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO system_setting (setting_key, setting_value, setting_type, description, created_at)
+        VALUES (#{settingKey}, #{settingValue}, #{settingType}, #{description}, NOW())
+    </insert>
+    
+    <!-- 删除设置 -->
+    <delete id="deleteByKey">
+        DELETE FROM system_setting WHERE setting_key = #{key}
+    </delete>
+    
+</mapper>

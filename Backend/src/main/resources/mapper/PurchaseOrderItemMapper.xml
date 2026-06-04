@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.dao.PurchaseOrderItemMapper">
+
+    <!-- 采购订单明细映射 -->
+    <resultMap id="BaseResultMap" type="com.example.backend.entity.PurchaseOrderItem">
+        <id column="id" property="id" />
+        <result column="purchase_order_id" property="purchaseOrderId" />
+        <result column="item_id" property="itemId" />
+        <result column="qty" property="qty" />
+        <result column="cost_price" property="costPrice" />
+        <result column="subtotal" property="subtotal" />
+    </resultMap>
+
+    <!-- 插入订单明细 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO purchase_order_item (purchase_order_id, item_id, qty, cost_price, subtotal)
+        VALUES (#{purchaseOrderId}, #{itemId}, #{qty}, #{costPrice}, #{subtotal})
+    </insert>
+
+    <!-- 根据订单ID删除所有明细 -->
+    <delete id="deleteByOrderId">
+        DELETE FROM purchase_order_item WHERE purchase_order_id = #{orderId}
+    </delete>
+
+    <!-- 根据订单ID查询所有明细 -->
+    <select id="selectByOrderId" resultMap="BaseResultMap">
+        SELECT * FROM purchase_order_item WHERE purchase_order_id = #{orderId}
+    </select>
+
+    <!-- 删除所有明细（慎用） -->
+    <delete id="deleteAll">
+        DELETE FROM purchase_order_item
+    </delete>
+
+</mapper>

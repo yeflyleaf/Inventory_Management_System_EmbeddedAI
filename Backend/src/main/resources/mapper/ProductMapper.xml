@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.dao.ProductMapper">
+
+    <!-- 商品实体映射 -->
+    <resultMap id="BaseResultMap" type="com.example.backend.entity.Product">
+        <id column="id" property="id" />
+        <result column="sku" property="sku" />
+        <result column="name" property="name" />
+        <result column="category" property="category" />
+        <result column="unit" property="unit" />
+        <result column="barcode" property="barcode" />
+        <result column="sale_price" property="salePrice" />
+        <result column="image_url" property="imageUrls" typeHandler="com.example.backend.handler.StringListTypeHandler" />
+        <result column="created_at" property="createdAt" />
+    </resultMap>
+
+    <!-- 插入商品 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO item (sku, name, category, unit, barcode, sale_price, image_url, created_at)
+        VALUES (#{sku}, #{name}, #{category}, #{unit}, #{barcode}, #{salePrice}, 
+                #{imageUrls, typeHandler=com.example.backend.handler.StringListTypeHandler}, #{createdAt})
+    </insert>
+
+    <!-- 更新商品信息 -->
+    <update id="update">
+        UPDATE item
+        SET sku = #{sku},
+            name = #{name},
+            category = #{category},
+            unit = #{unit},
+            barcode = #{barcode},
+            sale_price = #{salePrice},
+            image_url = #{imageUrls, typeHandler=com.example.backend.handler.StringListTypeHandler}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除商品 -->
+    <delete id="deleteById">
+        DELETE FROM item WHERE id = #{id}
+    </delete>
+
+    <!-- 根据ID查询商品 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM item WHERE id = #{id}
+    </select>
+
+    <!-- 查询所有商品 -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM item
+    </select>
+
+    <!-- 根据名称统计商品数量（用于查重） -->
+    <select id="countByName" resultType="int">
+        SELECT COUNT(*) FROM item
+        WHERE name = #{name}
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+    <!-- 根据SKU统计商品数量（用于查重） -->
+    <select id="countBySku" resultType="int">
+        SELECT COUNT(*) FROM item
+        WHERE sku = #{sku}
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+</mapper>
+
+

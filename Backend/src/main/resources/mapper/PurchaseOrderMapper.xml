@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.dao.PurchaseOrderMapper">
+
+    <!-- 采购订单映射 -->
+    <resultMap id="BaseResultMap" type="com.example.backend.entity.PurchaseOrder">
+        <id column="id" property="id" />
+        <result column="order_no" property="orderNo" />
+        <result column="supplier_id" property="supplierId" />
+        <result column="total_amount" property="totalAmount" />
+        <result column="status" property="status" />
+        <result column="created_at" property="createdAt" />
+        <result column="created_by" property="createdBy" />
+    </resultMap>
+
+    <!-- 创建采购订单 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO purchase_order (order_no, supplier_id, total_amount, status, created_at, created_by)
+        VALUES (#{orderNo}, #{supplierId}, #{totalAmount}, #{status}, #{createdAt}, #{createdBy})
+    </insert>
+
+    <!-- 更新采购订单 -->
+    <update id="update">
+        UPDATE purchase_order
+        SET supplier_id = #{supplierId},
+            total_amount = #{totalAmount},
+            status = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除采购订单 -->
+    <delete id="deleteById">
+        DELETE FROM purchase_order WHERE id = #{id}
+    </delete>
+
+    <!-- 根据ID查询采购订单 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM purchase_order WHERE id = #{id}
+    </select>
+
+    <!-- 查询所有采购订单 -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM purchase_order
+    </select>
+
+    <!-- 删除所有采购订单（慎用） -->
+    <delete id="deleteAll">
+        DELETE FROM purchase_order
+    </delete>
+
+    <!-- 根据状态统计订单数量 -->
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*) FROM purchase_order WHERE status = #{status}
+    </select>
+
+</mapper>
