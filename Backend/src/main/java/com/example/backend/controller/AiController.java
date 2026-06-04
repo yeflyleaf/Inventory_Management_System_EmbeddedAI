@@ -10,6 +10,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import com.example.backend.dto.ChatHistoryDTO;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessageDeserializer;
+import java.util.List;
+import java.util.ArrayList;
 
 import java.io.IOException;
 
@@ -27,6 +35,39 @@ public class AiController {
 
     @Autowired
     private ProductEmbeddingService productEmbeddingService;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    /**
+     * 获取当前登录用户的 AI 对话历史记录
+     */
+    @GetMapping("/history")
+    @LoginRequired
+    public Result<List<ChatHistoryDTO>> getHistory(HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            return Result.success(new ArrayList<>());
+        }
+        String key = "chat:memory:" + userId;
+        String json = redisTemplate.opsForValue().get(key);
+        if (json == null || json.isEmpty()) {
+            return Result.success(new ArrayList<>());
+        }
+        List<ChatMessage> messages = ChatMessageDeserializer.messagesFromJson(json);
+        List<ChatHistoryDTO> dtoList = new ArrayList<>();
+        for (ChatMessage message : messages) {
+            if (message instanceof UserMessage userMessage) {
+                dtoList.add(new ChatHistoryDTO("user", userMessage.text(), ""));
+            } else if (message instanceof AiMessage aiMessage) {
+                // 仅提取文本内容，且排除工具调用等空消息
+                if (aiMessage.text() != null && !aiMessage.text().isEmpty()) {
+                    dtoList.add(new ChatHistoryDTO("assistant", aiMessage.text(), ""));
+                }
+            }
+        }
+        return Result.success(dtoList);
+    }
 
     /**
      * 流式 AI 仓储问答接口 (Server-Sent Events)

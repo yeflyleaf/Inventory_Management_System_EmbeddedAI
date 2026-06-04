@@ -13,12 +13,16 @@ import dev.langchain4j.service.AiServices;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import com.example.backend.service.WarehouseAiAssistant;
 import com.example.backend.service.WarehouseTools;
+import dev.langchain4j.rag.content.retriever.ContentRetriever;
+import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 import java.time.Duration;
+import dev.langchain4j.store.memory.chat.ChatMemoryStore;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 @Configuration
 @EnableAsync
@@ -97,13 +101,30 @@ public class AiVectorConfig {
     public WarehouseAiAssistant warehouseAiAssistant(
             StreamingChatLanguageModel streamingChatLanguageModel,
             ChatLanguageModel chatLanguageModel,
-            WarehouseTools warehouseTools) {
+            WarehouseTools warehouseTools,
+            EmbeddingStore<TextSegment> embeddingStore,
+            EmbeddingModel embeddingModel,
+            StringRedisTemplate redisTemplate) {
+        
+        ContentRetriever contentRetriever = EmbeddingStoreContentRetriever.builder()
+                .embeddingStore(embeddingStore)
+                .embeddingModel(embeddingModel)
+                .maxResults(5)
+                .minScore(0.6)
+                .build();
+        
+        ChatMemoryStore chatMemoryStore = new RedisChatMemoryStore(redisTemplate);
         
         return AiServices.builder(WarehouseAiAssistant.class)
                 .streamingChatLanguageModel(streamingChatLanguageModel)
                 .chatLanguageModel(chatLanguageModel)
                 .tools(warehouseTools)
-                .chatMemoryProvider(userId -> MessageWindowChatMemory.withMaxMessages(10))
+                .contentRetriever(contentRetriever)
+                .chatMemoryProvider(userId -> MessageWindowChatMemory.builder()
+                        .id(userId)
+                        .maxMessages(10)
+                        .chatMemoryStore(chatMemoryStore)
+                        .build())
                 .build();
     }
 }

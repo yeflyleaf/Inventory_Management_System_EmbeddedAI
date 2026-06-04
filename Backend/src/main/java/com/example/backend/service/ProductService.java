@@ -2,6 +2,7 @@ package com.example.backend.service;
 
 import com.example.backend.dto.ProductDTO;
 import com.example.backend.vo.ProductVO;
+import com.example.backend.entity.Product;
 import java.util.List;
 
 /**
@@ -11,14 +12,16 @@ public interface ProductService {
     /**
      * 新增商品
      * @param productDTO 商品信息
+     * @return 商品实体
      */
-    void addProduct(ProductDTO productDTO);
+    Product addProduct(ProductDTO productDTO);
 
     /**
      * 更新商品
      * @param productDTO 商品信息
+     * @return 商品实体
      */
-    void updateProduct(ProductDTO productDTO);
+    Product updateProduct(ProductDTO productDTO);
 
     /**
      * 删除商品

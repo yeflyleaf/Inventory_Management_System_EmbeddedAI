@@ -47,7 +47,7 @@ public class ProductServiceImpl implements ProductService {
      */
     @Override
     @CacheEvict(value = "products", allEntries = true)
-    public void addProduct(ProductDTO productDTO) {
+    public Product addProduct(ProductDTO productDTO) {
         if (productMapper.countByName(productDTO.getName(), null) > 0) {
             throw new RuntimeException("商品名称已存在");
         }
@@ -68,7 +68,7 @@ public class ProductServiceImpl implements ProductService {
         
         product.setCreatedAt(LocalDateTime.now());
         productMapper.insert(product);
-        productEmbeddingService.updateProductEmbedding(product);
+        return product;
     }
 
     /**
@@ -83,7 +83,7 @@ public class ProductServiceImpl implements ProductService {
      */
     @Override
     @CacheEvict(value = "products", allEntries = true)
-    public void updateProduct(ProductDTO productDTO) {
+    public Product updateProduct(ProductDTO productDTO) {
         if (productMapper.countByName(productDTO.getName(), productDTO.getId()) > 0) {
             throw new RuntimeException("商品名称已存在");
         }
@@ -111,8 +111,8 @@ public class ProductServiceImpl implements ProductService {
             product.setImageUrls(finalImageUrls);
             
             productMapper.update(product);
-            productEmbeddingService.updateProductEmbedding(product);
         }
+        return product;
     }
 
     /**
@@ -135,7 +135,6 @@ public class ProductServiceImpl implements ProductService {
 
         // 删除数据库记录
         productMapper.deleteById(id);
-        productEmbeddingService.deleteProductEmbedding(id);
     }
 
     /**

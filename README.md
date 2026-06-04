@@ -1,27 +1,39 @@
 <div align="center">
 
-# 📦 Inventory Management System (进销存管理系统)
+# 📦 智能进销存管理系统 (AI嵌入版)
 
-**基于 Spring Boot 3 与 Vue 3 构建的现代化、高性能进销存解决方案**
-
-[![Vue](https://img.shields.io/badge/Vue-3-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white)](https://vuejs.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.2-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![Java](https://img.shields.io/badge/Java-17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![Redis](https://img.shields.io/badge/Redis-7.x-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+**基于 Spring Boot 3 + Vue 3 + LangChain4j 构建的全栈式、智能化分布式进销存管理系统**
 
 </div>
 
+<p align="center">
+  <!-- Frontend Tech -->
+  <a href="https://vuejs.org/"><img src="https://img.shields.io/badge/Framework-Vue%203.5.22-42b883?style=flat-square&logo=vue.js" alt="Framework"></a>
+  <a href="https://vite.dev/"><img src="https://img.shields.io/badge/Build-Vite%207.1.11-646cff?style=flat-square&logo=vite" alt="Build"></a>
+  <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript"><img src="https://img.shields.io/badge/Language-JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black" alt="Language"></a>
+  <a href="https://pinia.vuejs.org/"><img src="https://img.shields.io/badge/State-Pinia%203.0.3-yellow?style=flat-square&logo=pinia" alt="State"></a>
+  <br>
+  <!-- Backend & AI -->
+  <a href="https://www.oracle.com/java/technologies/downloads/#java17"><img src="https://img.shields.io/badge/Language-Java%2017-ED8B00?style=flat-square&logo=openjdk&logoColor=white" alt="Java 17"></a>
+  <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Core-Spring%20Boot%203.3.2-6DB33F?style=flat-square&logo=spring-boot" alt="Spring Boot"></a>
+  <a href="https://mybatis.org/mybatis-3/"><img src="https://img.shields.io/badge/ORM-MyBatis%203.0.5-black?style=flat-square" alt="MyBatis"></a>
+  <a href="https://www.mysql.com/"><img src="https://img.shields.io/badge/DB-MySQL%208.0-4479A1?style=flat-square&logo=mysql&logoColor=white" alt="MySQL"></a>
+  <a href="https://redis.io/"><img src="https://img.shields.io/badge/Vector%20DB-Redis%20Stack-red?style=flat-square&logo=redis" alt="Redis Stack"></a>
+  <a href="https://github.com/langchain4j/langchain4j"><img src="https://img.shields.io/badge/AI%20Framework-LangChain4j%200.31.0-orange?style=flat-square" alt="LangChain4j"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%203.0-orange?style=flat-square" alt="License"></a>
+</p>
+
 ---
 
-## 📖 项目简介
+## 项目简介 (Overview)
 
-**Inventory Management System** 是一套专为中小微企业定制的现代化智能进销存管理系统。该系统聚焦于核心业务流：采购入库、销售出库、库存流转，以及后台系统数据管控，通过数字化手段协助企业告别传统手工台账，提升供应链协同效率并降低运营成本。系统不仅具备完善的 RBAC 角色权限体系，提供全面的高价值数据可视化分析看板，还支持 Docker 容器化的快速私有部署。
+**Inventory Management System with Embedded AI** 是一套专为中小微企业定制的现代化、智能化进销存与仓储管理系统（ERP）。系统聚焦于核心业务流：采购入库、销售出库、库存流转，以及后台系统数据管控，协助企业告别传统手工台账，提升供应链协同效率并降低运营成本。
+
+在系统的最新架构升级中，**深度集成了生成式大语言模型（LLM）与检索增强生成（RAG）技术**。通过引入 **LangChain4j** 框架与 **Redis Stack 向量数据库**，我们打造了具备全局业务感知能力的 **AI 智能仓储助手**。用户可以使用自然语言进行模糊搜索、低库存查询、分类占比统计并自动生成合理的补货建议，实现人机协同的现代化数字化管理。
 
 ---
 
-## 📸 系统主页
+## 系统主页 (Screenshots)
 
 <div align="center">
 
@@ -33,196 +45,179 @@
 
 ---
 
-## ✨ 核心业务特性
+## 架构设计与系统概览 (Architecture)
 
-本项目涵盖了企业日常进销存业务所需要的四大业务核心版块：
+### AI 嵌入与核心架构六大支柱
 
-### 📊 1. 业务全景仪表盘 (Dashboard)
-
-- **实时 KPI 监控：** 包含但不限于当月销售总额、本周新增采购、预警商品占比、流失客户等多维关键指标追踪。
-- **库存健康度与分类结构分析：** 通过 ECharts 提供丰富的饼图、玫瑰图对商品各类目的仓储占比做出详细多维剖析。
-- **出入库趋势折线图：** 实时监控过去 30 天/6 个月的整体业务波峰波谷，协助预判市场动向与采购节点。
-- **智能异常预警墙：** 把需要紧急干预的操作集中展示。
-
-### 📦 2. 核心库存系统 (WMS)
-
-- **多库位精细化管理：** 灵活定义和层级划分企业的各大物理或逻辑仓储、货架、库位节点。
-- **实时库存溯源追踪：** 按 SKU 或条形码精准提供每一个商品的库存储备快照，支持溯源所有历史流水台账。
-- **动态库存调整预警：** 当商品库存触及安全下限或过高堆积时，系统主动生成预警任务推送。
-- **手工盘点调整与核算：** 支持损溢报盘工作及其对应审批记账流转。
-
-### 🏷️ 3. 商品主数据中心
-
-- **SKU 高效 CRUD 管理：** 所见即所得的商品上新和商品图片多图并发上传及结构化处理。
-- **条形码全生命周期追溯：** 深度集成条形码生成体系（ZXing），无缝桥接实物扫码出入库场景。
-- **分类搜索与字典管理：** 树形维度的多级分类展示，与全局实时响应的高性能分页搜查列表。
-
-### 🛒 4. 采购与销售闭环
-
-- **供应链单据生命周期：** 覆盖采购询价、到货验收、销售开单、出库发货全过程管理。
-- **上游源头渠道管理：** 维护供应商、客户的资质与账期，追踪信用与历史单据交互情况。
-- **事件驱动库存自动更新：** 订单状态从“挂起”到“完结”，底层基于严格事务自动计算并落实扣库/加库。
-
-### 🔐 5. 管理员与系统配置 (RBAC)
-
-- **细粒度权限控制 (RBAC)：** 从按钮级到路由级的精细化权限切割，轻松控制“超级管理员”、“库管员”、“出纳”等多身份的权限。
-- **全局日志审计中心：** 追踪“何人、何时、在什么模块、执行了什么关键修改”，防患于未然并支持定期滚动清理。
-- **自定义系统级参数：** 支持前端页面的应用名配置，全局上传物理绑定挂载点，单据流水号生成前缀等多维度业务参数自定制。
+| 核心组件 | 技术实现 | 功能描述 |
+| :--- | :--- | :--- |
+| **智能对话服务** | **SSE / SseEmitter** | 提供类似 ChatGPT 的流式问答面板，且不同账号的聊天历史互不影响。 |
+| **RAG 语义搜索** | **LangChain4j + Redis Stack** | 支持用大白话模糊搜索商品（例如输入“数码产品”，智能找出手机、电脑等商品）。 |
+| **智能工具调用** | **Function Calling (`@Tool`)** | 允许 AI 在回答问题时，自己决定调用后台接口查询实时的库存和统计数据。 |
+| **异步向量同步** | **Spring AOP + `@Async`** | 当商品发生增删改时，AI 脑子里的商品数据会自动在后台同步，不卡顿系统。 |
+| **多端跨平台支持** | **Electron + Capacitor** | 使用同一套网页前端代码，可以同时打包并运行在浏览器、电脑软件和手机 App 上。 |
+| **基础进销存业务** | **Spring Boot 3 + ECharts** | 包含常规的采购、销售和库存管理，并用图表展示业务报表，支持扫码记账。 |
 
 ---
 
-## 🛠️ 系统架构与技术栈
-
-采用前后端分离架构，前端注重交互体验与数据可视化展现，后端致力于高并发稳定性和强事务数据一致性控制。
-
-| 分类            | 核心技术             | 版本  | 用途与说明                                  |
-| :-------------- | :------------------- | :---: | :------------------------------------------ |
-| **🎨 Web 前端** | **Vue.js**           |  3.x  | 核心逻辑与声明式渲染 (Composition API 风格) |
-|                 | **Vite**             |  7.x  | 极速冷启动的现代前端构建与热重载工具        |
-|                 | **Pinia**            |  3.x  | 直观、类型安全的新一代全局状态管控机制      |
-|                 | **Vue Router**       |  4.x  | SPA 应用路由引擎与动态守卫控制              |
-|                 | **Apache ECharts**   |  6.x  | 业务数据深度可视化呈现引擎                  |
-|                 | **Axios**            |  1.x  | 封装统一拦截器与错误处理的 HTTP Client      |
-| **⚙️ 核心后端** | **Spring Boot**      | 3.3.2 | 项目基础脚手架及核心控制容器                |
-|                 | **Java**             |  17   | 拥抱新特性及 G1 垃圾回收优势的底层 JVM 语言 |
-|                 | **MyBatis**          | 3.0.5 | 高效关系型对象映射框架，聚焦复杂 SQL 调优   |
-|                 | **MySQL Server**     | 8.0+  | 持久化业务主存储关系数据库引擎              |
-|                 | **Redis**            |  7.x  | Session 缓存、字典热点参数、全局 ID 分配    |
-| **🚀 运维部署** | **Docker** / Compose |  24+  | 双线分离的容器化集成服务引擎                |
-|                 | **Nginx**            | 1.25+ | 高并发 HTTP 服务器，代理转发及静态资源托管  |
-
----
-
-## 📂 项目目录结构
-
-该项目采用了标准的微服务与前后台解耦的单体开发目录结构，层级划分清晰：
+## 📂 项目目录导航 (Directory Structure)
 
 ```text
-Inventory_Management_System/
-├── Backend/                 # Java Spring Boot 后端源码工程
-│   ├── src/main/java        # 后端核心业务代码逻辑区
-│   │   └── com/.../         # Controller/Service/Mapper/Entity/Config 架构分层
-│   ├── src/main/resources   # 配置文件与数据库静态文件 (application.yml, mapper/*.xml)
-│   ├── pom.xml              # Maven 构建依赖配置
-│   └── mvnw / mvnw.cmd      # 内置 Maven 跨平台执行脚本
-├── Frontend/                # Vue 3 前端源码工程
-│   ├── src/                 # 前端核心业务代码逻辑区
-│   │   ├── api/             # 统一封装的 Axios 异步请求汇聚点
-│   │   ├── assets/          # 全局静态样式与内置媒体资源
-│   │   ├── components/      # 抽象封装的可复用 Vue 组件
-│   │   ├── layout/          # 总体页面 UI 框架骨架
-│   │   ├── router/          # 前端路由挂载表与登录状态拦截守卫
-│   │   ├── store/           # 基于 Pinia 全局响应式状态库
-│   │   ├── utils/           # 时间处理、数字精算、正则校验等基础公共类库
-│   │   └── views/           # 产品核心页面视图结构
-│   ├── package.json         # NPM Node 依赖地图
-│   └── vite.config.js       # Vite 核心打包及反向代理规则配置
-├── docker-compose.yml       # 项目完整一键容器化编排配置文件
-├── Dockerfile               # 跨多阶段镜像打包构造文件 (含前后端统一描述)
-├── nginx.conf               # Nginx 高级负载、伪静态及跨域转发规则模板
-└── .env.example             # 部署环境隔离变量模板 (需拷贝为 .env)
+.
+├── Frontend/                        # Vue 3 前端跨平台主工程
+│   ├── src/                         # 业务源码目录
+│   │   ├── api/                     # Axios 请求接口封装 (包含 AI 问答接口)
+│   │   ├── assets/                  # 静态资源 (公共样式与图标)
+│   │   ├── components/              # 封装业务组件 (含 AiAssistant.vue 悬浮打字机面板)
+│   │   ├── router/                  # Vue Router 路由管理与登录鉴权守卫
+│   │   ├── stores/                  # Pinia 状态管理中心 (用户登录态、缓存)
+│   │   ├── views/                   # 全量业务页面结构 (看板、商品管理、单据录入等)
+│   │   └── App.vue                  # 根组件 (定义主体布局与 AI 挂载)
+│   ├── electron/                    # Electron 桌面端主进程脚本及配置
+│   ├── android/                     # Capacitor 适配生成的原生安卓工程
+│   ├── vite.config.js               # Vite 核心配置 (端口转发与打包策略)
+│   └── package.json                 # 前端工程配置与自动化脚本
+├── Backend/                         # Java Spring Boot 后端主工程
+│   ├── src/main/java/               # 业务源码目录
+│   │   └── com/example/backend/
+│   │       ├── aspect/              # AOP 切面 (ProductEmbeddingAspect.java 异步向量同步)
+│   │       ├── config/              # 配置类 (AiVectorConfig.java 注入 LLM 与 Redis 向量存储)
+│   │       ├── controller/          # 接口控制器 (AiController.java, ProductController.java 等)
+│   │       ├── mapper/              # MyBatis Mapper 接口定义
+│   │       ├── model/               # 实体类、DTO、VO 等数据模型
+│   │       └── service/             # 业务服务层 (含 AI 助手接口及自定义 `@Tool` 工具函数)
+│   ├── src/main/resources/          # 配置文件与静态资源
+│   │   ├── application.properties   # 核心配置文件 (含数据库、Redis 向量库及 LLM 参数)
+│   │   ├── schema.sql               # 数据库初始化结构脚本
+│   │   └── data.sql                 # 演示环境基础数据脚本
+│   └── pom.xml                      # 后端 Maven 依赖配置文件
+├── docker-compose.yml               # 集成 Redis Stack Server 等容器一键编排配置
+├── Dockerfile                       # 多阶段镜像打包构建文件 (含前后端托管与运行)
+├── nginx.conf                       # Nginx 高级负载、伪静态及跨域转发规则模板
+├── .env.example                     # 部署环境隔离变量模板 (需拷贝为 .env)
+└── README.md                        # 项目技术文档与开发手册
 ```
 
 ---
 
-## 🚀 快速安装开始
+## 🛠️ 技术栈清单 (Tech Stack)
 
-### 📋 环境前置要求 (本地原生开发与运行)
+### 后端核心技术与 AI
 
-若不采用 Docker 部署方式而选择传统模式开发，开发宿主机需要配备以下环境：
+- **基础框架**: Spring Boot 3.3.2
+- **AI 开发框架**: LangChain4j 0.31.0
+- **向量数据库**: Redis Stack (内置 RediSearch 模块，用于高维向量检索)
+- **向量嵌入模型**: AllMiniLmL6V2 (384维本地轻量化嵌入模型)
+- **持久层框架**: MyBatis Starter 3.0.5 + MySQL 8.0
+- **核心工具**: ZXing 3.5.2 (条形码处理), Spring AOP + `@Async` (异步向量同步)
+- **基础缓存**: Spring Boot Starter Data Redis
 
-- **Node.js**: `^20.19.0` 或 `≥22.12.0` (推荐使用稳定的 LTS 版本)
-- **Java Development Kit (JDK)**: `17` 或更高版本
-- **MySQL**: `8.0` 及以上版本
-- **Redis**: 运行状态下的 `6.0+`/`7.x` 实例
-- **Maven**: `3.6+` (项目内已附赠 mvnw wrapper 以省去系统环境配置)
+### 前端核心技术
 
----
-
-### 🖥️ 本地环境 (前端启动)
-
-1. 进入前端根工程目录：
-   ```bash
-   cd Frontend
-   ```
-2. 安装 NPM 依赖树：
-   ```bash
-   npm install
-   ```
-3. 唤醒本地热渲染开发服务器：
-   ```bash
-   npm run dev
-   ```
-   🎉 浏览器自动跳转或访问: **http://localhost:5173**
+- **核心框架**: Vue 3.5.22 (Composition API)
+- **构建工具**: Vite 7.1.11
+- **状态管理**: Pinia 3.0.3
+- **数据可视化**: ECharts 6.0.0
+- **桌面容器**: Electron 39.2.7
+- **移动容器**: Capacitor 8.0.0 (面向 Android)
+- **代码质量**: ESLint 9.x + Oxlint + Prettier
 
 ---
 
-### ⚙️ 本地环境 (后端启动)
+## 🚀 快速开始与本地开发 (Getting Started)
 
-1. **配置数据库环境：** 极力推荐先行启动开发本地（或公网）的 MySQL `8.0` 以及 Redis 环境，并且利用你习惯的工具 (Navicat/DataGrip) 初始化并创建用于挂载的特定数据库（例如命名为 `demo1`）。若有随源码附带的 SQL，请执行导入。
-2. 进入后端基础目录工程：
-   ```bash
-   cd Backend
-   ```
-3. 检视或更新 `application.properties/yml` 中的数据库配置及密码。
-4. 调用 Maven Wrapper 编译启动：
-   ```bash
-   mvnw.cmd spring-boot:run
-   # Mac/Linux 系列环境下使用: ./mvnw spring-boot:run
-   ```
-   🔌 服务网关激活成功监听地址: **http://localhost:8080**
+### 1. 前置环境要求
+
+- **Java 开发包**: JDK 17
+- **前端运行环境**: Node.js v20.19.0+ 或 v22.12.0+
+- **构建管理工具**: Maven 3.8+ (或使用自带的 `./mvnw` / `mvnw.cmd`)
+- **容器与数据库**: Docker & Docker Compose
+- **大模型 API Key**: 兼容 OpenAI 协议的 API（如 OpenAI 官方、DeepSeek、硅基流动等）
+- **数据库**: MySQL 8.0+
+
+### 2. 运行前端工程
+
+#### 启动 Web 开发服务器
+
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+
+访问 Web 页面：[http://localhost:5173](http://localhost:5173)
+
+#### 启动 Electron 桌面开发版
+
+```bash
+npm run electron:dev
+```
+
+### 3. 运行后端服务
+
+#### 编译并启动
+
+进入后端工程目录并执行：
+
+```bash
+cd Backend
+./mvnw spring-boot:run
+# Windows 环境下使用: .\mvnw.cmd spring-boot:run
+```
+
+服务启动成功后将监听地址: **http://localhost:8080**
 
 ---
 
-## 🐳 Docker 容器化部署 (推荐生产与演示)
+## 生产部署方案 (Deployment)
 
-如需实现一端开发、处处无缝运行。我们原生提供了极致精简环境依赖的 `docker-compose` 自动化服务集成栈，可一步将 Nginx前端、Spring Boot后端、以及独立的内部 Redis 装载拉起。
+### Docker Compose 一键容器化部署
 
-### 第一步：准备环境变量
+项目原生提供了一键容器化编排服务。我们将自动拉起 Nginx 前端、Spring Boot 后端、以及独立的 `Redis Stack Server` 向量数据库镜像。
 
-在项目工程根目录处拷贝示例环境变量文件，以创建针对你宿主机或生产主机的本地私有环境：
+#### 1. 准备环境变量
+
+在项目工程根目录处拷贝示例环境变量文件，以创建你的私有环境配置文件：
 
 ```bash
 cp .env.example .env
 ```
 
-用编辑器打开 `.env` 文件，完善你的 MySQL （需预先建表）相关连接参数、Redis 的访问密匙及各类端口宿主机映射需求。其中 `MYSQL_HOST` 默认设为 `host.docker.internal` 即挂载本机的 MySQL 进程。
+用编辑器打开 `.env` 文件，完善你的 MySQL 连接参数、Redis 的访问秘匙，**以及核心大模型的连接端点**：
 
-### 第二步：一键集成编译及构建
+```ini
+# MySQL 数据库配置 (需预先建表，宿主机 Host 设为 host.docker.internal)
+MYSQL_HOST=host.docker.internal
+MYSQL_PORT=3306
+MYSQL_DATABASE=your_database_name
+MYSQL_USERNAME=your_username
+MYSQL_PASSWORD=your_password
 
-在此之前，确认当前宿主机或服务器已经完整安装并启动了 Docker Desktop 或者原生 Docker Engine服务。
+# 大模型 API 连接信息 (将注入到 Docker 后端容器中)
+AI_BASE_URL=https://api.openai.com/v1
+AI_API_KEY=your_api_key
+AI_MODEL_NAME=gpt
+AI_TEMPERATURE=0.7
+
+# 域名配置
+DOMAIN_NAME=localhost
+```
+
+#### 2. 一键集成编译及构建
+
+在确认当前宿主机已经启动了 Docker Engine 或 Docker Desktop 的前提下，运行：
 
 ```bash
 docker-compose up -d --build
 ```
 
-该命令执行后系统将：
-
-1. 自动依据 `Dockerfile` 构建基于 `alpine` / `jdk17` 的轻量运行后容器镜像。
-2. 自动安装 Node 依赖包并构建前端至生产环境 Dist 静态包。
-3. 把前端 Dist 包推入基于最新版 Nginx 官方容器构建的 `inventory_nginx` 前端代理节点。
-4. 自主检测上游容器健康情况，拉起高可用 Redis 和 后置 Spring Boot 业务服务器。
-
-⏳ 构建完成后，在浏览器中访问 `.env` 文件里指定的 `DOMAIN_NAME` (默认为 `http://localhost`) 即刻进行生产级体验。
-
 ---
 
-## 👨‍💻 贡献指南
+## 📄 开源许可证 (License)
 
-1. **Fork** 此项目并在你的代码库建立对应的副本。
-2. 创建以特性功能为核心的分支并开展研发 (`git checkout -b feature/AmazingFeature`)。
-3. 请严格依照 ESLint 和阿里 Java 开发规范。
-4. 提交经过深思熟虑且干净利落的代码变动 (`git commit -m 'feat: Add some AmazingFeature'`)。
-5. 推送到远端代码池分支 (`git push origin feature/AmazingFeature`)。
-6. 并发起向我们回溯融合的 Pull Request。
+本项目采用 [AGPL-3.0](LICENSE) 许可证发布。
 
----
-
-## 📄 许可证 (License)
-
-本项目采用 [AGPL-3.0](LICENSE) 许可证。
-
-Copyright © 2026-Present [yeflyleaf](https://github.com/yeflyleaf). All Rights Reserved.
+Copyright © 2026-Present [**yeflyleaf**](https://github.com/yeflyleaf). 保留所有权利。
 
 ---
 

@@ -113,9 +113,39 @@ const messages = ref([])
 const messageContainer = ref(null)
 const inputBox = ref(null)
 
-// 监听面板开启，自动聚焦输入框
+// 从后端拉取当前登录用户的对话历史记录
+const loadChatHistory = async () => {
+  const token = localStorage.getItem('token')
+  if (!token) return
+  
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+  try {
+    const res = await fetch(`${baseUrl}/ai/history`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success && data.data) {
+        messages.value = data.data.map(item => ({
+          role: item.role,
+          content: item.content,
+          time: item.time || ''
+        }))
+        scrollToBottom()
+      }
+    }
+  } catch (error) {
+    console.error('加载聊天历史失败:', error)
+  }
+}
+
+// 监听面板开启，自动聚焦输入框并拉取历史记录
 watch(isOpen, (newVal) => {
   if (newVal) {
+    loadChatHistory()
     nextTick(() => {
       inputBox.value?.focus()
       scrollToBottom()

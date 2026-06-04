@@ -114,7 +114,7 @@ ssl/*.pem
 ssl/*.key
 ssl/*.crt
 ssl/*.csr
-prompt.md
+
 # ------------------------------------------
 # Misc / User Data
 # ------------------------------------------
@@ -125,6 +125,7 @@ prompt.md
 *.ppt
 *.xlsx
 *.xls
+prompt.md
 
 # Archives
 *.zip
