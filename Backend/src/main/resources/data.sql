@@ -12,7 +12,8 @@ INSERT IGNORE INTO system_setting (setting_key, setting_value, setting_type, des
 ('low_stock_threshold', '10', 'number', '低库存预警阈值'),
 ('order_prefix_purchase', 'PO', 'string', '采购单编号前缀'),
 ('order_prefix_sales', 'SO', 'string', '销售单编号前缀'),
-('allow_negative_stock', 'false', 'boolean', '是否允许负库存');
+('allow_negative_stock', 'false', 'boolean', '是否允许负库存'),
+('ai_api_key', '', 'string', 'AI API密钥');
 
 -- 2. 添加默认管理员账号
 -- 密码为 admin123abc 的加密形式 (BCrypt)

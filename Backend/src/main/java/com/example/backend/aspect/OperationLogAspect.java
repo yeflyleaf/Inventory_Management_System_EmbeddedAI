@@ -104,9 +104,49 @@ public class OperationLogAspect {
             // 请求参数
             Object[] args = point.getArgs();
             try {
+                // 对包含敏感 AI API 密钥的参数进行克隆与脱敏处理
+                Object[] logArgs = args;
+                if (args != null) {
+                    logArgs = new Object[args.length];
+                    boolean isUpdated = false;
+                    for (int i = 0; i < args.length; i++) {
+                        Object arg = args[i];
+                        if (arg instanceof java.util.Map) {
+                            java.util.Map<Object, Object> map = new java.util.HashMap<>((java.util.Map<?, ?>) arg);
+                            if (map.containsKey("ai_api_key")) {
+                                map.put("ai_api_key", "******");
+                                isUpdated = true;
+                            }
+                            // 如果是 updateSetting(key, body) 形式，且 key 为 ai_api_key
+                            boolean hasKey = false;
+                            for (Object a : args) {
+                                if ("ai_api_key".equals(a)) {
+                                    hasKey = true;
+                                    break;
+                                }
+                            }
+                            if (hasKey && map.containsKey("value")) {
+                                map.put("value", "******");
+                                isUpdated = true;
+                            }
+                            logArgs[i] = map;
+                        } else {
+                            logArgs[i] = arg;
+                        }
+                    }
+                    if (!isUpdated) {
+                        logArgs = args;
+                    }
+                }
+
                 // 过滤掉不能序列化的参数，如HttpServletRequest等
-                // 这里简单处理，直接序列化，如果报错就忽略
-                String params = objectMapper.writeValueAsString(args);
+                String params = objectMapper.writeValueAsString(logArgs);
+                
+                // 正则兜底替换
+                if (params != null && params.contains("ai_api_key")) {
+                    params = params.replaceAll("\"ai_api_key\"\\s*:\\s*\"[^\"]+\"", "\"ai_api_key\":\"******\"");
+                }
+                
                 // 截断过长的参数
                 if (params.length() > 2000) {
                     params = params.substring(0, 2000) + "...";

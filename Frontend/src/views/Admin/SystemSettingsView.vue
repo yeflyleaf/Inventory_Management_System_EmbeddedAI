@@ -133,6 +133,33 @@
       </div>
     </div>
     
+    <!-- AI 设置 -->
+    <div class="settings-card">
+      <div class="card-header">
+        <div class="header-icon ai">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v20M17 5L7 19M7 5l10 14"/>
+          </svg>
+        </div>
+        <div class="header-content">
+          <h3>AI 设置</h3>
+          <p>配置 AI 智能助手 API 密钥</p>
+        </div>
+      </div>
+      
+      <div class="settings-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>AI API 密钥 (API Key)</label>
+            <input v-model="settings.ai_api_key" type="password" placeholder="请输入 AI 接口 API 密钥 (例如: sk-...)">
+            <span class="form-help">保存后密钥将被加密存储。若已保存密钥，此处会显示为 ****** 且可重新输入以覆盖保存。</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <!-- 保存按钮 -->
     <div class="actions-bar">
       <button @click="resetSettings" class="reset-btn" :disabled="saving">
@@ -174,7 +201,8 @@ const settings = ref({
   inventory_backlog_days: '60',
   order_prefix_purchase: 'PO',
   order_prefix_sales: 'SO',
-  allow_negative_stock: 'false'
+  allow_negative_stock: 'false',
+  ai_api_key: ''
 })
 
 const originalSettings = ref({})
@@ -271,6 +299,10 @@ onMounted(() => {
 
 .header-icon.orders {
   background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.header-icon.ai {
+  background: linear-gradient(135deg, #f857a6 0%, #ff5858 100%);
 }
 
 .header-content h3 {

@@ -16,6 +16,8 @@ import com.example.backend.service.WarehouseTools;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -55,6 +57,9 @@ public class AiVectorConfig {
     @Value("${langchain4j.open-ai.chat-model.temperature:0.7}")
     private Double chatTemperature;
 
+    @Autowired
+    private ObjectProvider<com.example.backend.service.SystemSettingService> systemSettingServiceProvider;
+
     @Bean
     public EmbeddingModel embeddingModel() {
         return new AllMiniLmL6V2EmbeddingModel();
@@ -77,24 +82,12 @@ public class AiVectorConfig {
 
     @Bean
     public ChatLanguageModel chatLanguageModel() {
-        return OpenAiChatModel.builder()
-                .baseUrl(chatBaseUrl)
-                .apiKey(chatApiKey)
-                .modelName(chatModelName)
-                .temperature(chatTemperature)
-                .timeout(Duration.ofSeconds(60))
-                .build();
+        return new DynamicChatLanguageModel(chatBaseUrl, chatApiKey, chatModelName, chatTemperature, systemSettingServiceProvider);
     }
 
     @Bean
     public StreamingChatLanguageModel streamingChatLanguageModel() {
-        return OpenAiStreamingChatModel.builder()
-                .baseUrl(chatBaseUrl)
-                .apiKey(chatApiKey)
-                .modelName(chatModelName)
-                .temperature(chatTemperature)
-                .timeout(Duration.ofSeconds(60))
-                .build();
+        return new DynamicStreamingChatLanguageModel(chatBaseUrl, chatApiKey, chatModelName, chatTemperature, systemSettingServiceProvider);
     }
 
     @Bean

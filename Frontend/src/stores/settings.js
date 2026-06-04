@@ -16,7 +16,8 @@ export const useSettingsStore = defineStore('settings', {
       inventory_backlog_days: '60',
       order_prefix_purchase: 'PO',
       order_prefix_sales: 'SO',
-      allow_negative_stock: 'false'
+      allow_negative_stock: 'false',
+      ai_api_key: ''
     },
     loaded: false
   }),

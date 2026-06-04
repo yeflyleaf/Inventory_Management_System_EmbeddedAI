@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * 系统公共控制器
@@ -26,6 +27,8 @@ public class SystemController {
      */
     @GetMapping("/settings")
     public Result<Map<String, String>> getSettings() {
-        return Result.success(systemSettingService.getAllAsMap());
+        Map<String, String> settings = new HashMap<>(systemSettingService.getAllAsMap());
+        settings.remove("ai_api_key"); // 移除AI API Key，避免非管理员泄露
+        return Result.success(settings);
     }
 }

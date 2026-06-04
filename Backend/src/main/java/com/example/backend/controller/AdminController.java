@@ -238,7 +238,23 @@ public class AdminController {
      */
     @GetMapping("/settings")
     public Result<List<SystemSetting>> getAllSettings() {
-        return Result.success(systemSettingService.findAll());
+        List<SystemSetting> settings = systemSettingService.findAll();
+        // 深拷贝并脱敏，避免影响二级缓存中的原始对象
+        List<SystemSetting> copy = settings.stream().map(s -> {
+            SystemSetting ns = new SystemSetting();
+            ns.setId(s.getId());
+            ns.setSettingKey(s.getSettingKey());
+            ns.setSettingValue(s.getSettingValue());
+            ns.setSettingType(s.getSettingType());
+            ns.setDescription(s.getDescription());
+            ns.setCreatedAt(s.getCreatedAt());
+            ns.setUpdatedAt(s.getUpdatedAt());
+            if ("ai_api_key".equals(ns.getSettingKey()) && ns.getSettingValue() != null && !ns.getSettingValue().trim().isEmpty()) {
+                ns.setSettingValue("******");
+            }
+            return ns;
+        }).collect(Collectors.toList());
+        return Result.success(copy);
     }
     
     /**
@@ -246,7 +262,14 @@ public class AdminController {
      */
     @GetMapping("/settings/map")
     public Result<Map<String, String>> getSettingsAsMap() {
-        return Result.success(systemSettingService.getAllAsMap());
+        Map<String, String> settings = new HashMap<>(systemSettingService.getAllAsMap());
+        if (settings.containsKey("ai_api_key")) {
+            String val = settings.get("ai_api_key");
+            if (val != null && !val.trim().isEmpty()) {
+                settings.put("ai_api_key", "******");
+            }
+        }
+        return Result.success(settings);
     }
     
     /**
@@ -268,6 +291,35 @@ public class AdminController {
         // 获取当前设置用于对比
         Map<String, String> currentSettings = systemSettingService.getAllAsMap();
         
+        // 创建可变的设置Map副本
+        Map<String, String> settingsCopy = new HashMap<>(settings);
+        
+        // 特殊处理 ai_api_key，比对是否真的修改过
+        String newApiKey = settingsCopy.get("ai_api_key");
+        if (newApiKey != null) {
+            String oldValue = currentSettings.get("ai_api_key");
+            boolean unchanged = false;
+            if ("******".equals(newApiKey)) {
+                unchanged = true;
+            } else {
+                String decryptedOld = "";
+                if (oldValue != null && !oldValue.trim().isEmpty()) {
+                    try {
+                        decryptedOld = com.example.backend.utils.EncryptionUtils.decrypt(oldValue);
+                    } catch (Exception e) {
+                        decryptedOld = "";
+                    }
+                }
+                if (Objects.equals(decryptedOld, newApiKey)) {
+                    unchanged = true;
+                }
+            }
+            if (unchanged) {
+                // 如果没有修改，则从更新列表中移除，避免重复加密或写入掩码
+                settingsCopy.remove("ai_api_key");
+            }
+        }
+
         // 定义日志动作映射
         Map<String, String> actionMap = Map.of(
             "company_name", "修改公司名称",
@@ -278,7 +330,8 @@ public class AdminController {
             "inventory_backlog_days", "修改库存积压天数",
             "allow_negative_stock", "修改允许负库存",
             "order_prefix_purchase", "修改采购单编号前缀",
-            "order_prefix_sales", "修改销售单编号前缀"
+            "order_prefix_sales", "修改销售单编号前缀",
+            "ai_api_key", "修改AI API密钥"
         );
 
         Long userId = (Long) request.getAttribute("userId");
@@ -290,7 +343,7 @@ public class AdminController {
             }
         }
 
-        for (Map.Entry<String, String> entry : settings.entrySet()) {
+        for (Map.Entry<String, String> entry : settingsCopy.entrySet()) {
             String key = entry.getKey();
             String newValue = entry.getValue();
             String oldValue = currentSettings.get(key);
@@ -298,7 +351,16 @@ public class AdminController {
             // 对比值是否发生变化
             if (!Objects.equals(oldValue, newValue)) {
                 String action = actionMap.getOrDefault(key, "修改系统设置");
-                String description = String.format("%s: 从 '%s' 修改为 '%s'", action, oldValue == null ? "" : oldValue, newValue);
+                
+                // 记录日志时脱敏
+                String logOldValue = oldValue == null ? "" : oldValue;
+                String logNewValue = newValue;
+                if ("ai_api_key".equals(key)) {
+                    logOldValue = (oldValue != null && !oldValue.trim().isEmpty()) ? "******" : "";
+                    logNewValue = "******";
+                }
+                
+                String description = String.format("%s: 从 '%s' 修改为 '%s'", action, logOldValue, logNewValue);
                 
                 // 创建日志
                 OperationLog log = new OperationLog();
@@ -315,17 +377,17 @@ public class AdminController {
                 
                 try {
                     // 记录变更的参数
-                    Map<String, String> param = Map.of(key, newValue);
+                    Map<String, String> param = Map.of(key, logNewValue);
                     log.setRequestParams(objectMapper.writeValueAsString(param));
                 } catch (Exception e) {
-                    log.setRequestParams(key + "=" + newValue);
+                    log.setRequestParams(key + "=" + logNewValue);
                 }
 
                 operationLogService.log(log);
             }
         }
 
-        systemSettingService.batchUpdate(settings);
+        systemSettingService.batchUpdate(settingsCopy);
         return Result.success(null, "设置已批量更新");
     }
 }

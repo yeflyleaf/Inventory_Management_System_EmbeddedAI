@@ -109,13 +109,25 @@ public class SystemSettingServiceImpl implements SystemSettingService {
     @Override
     @CacheEvict(value = "systemSettings", allEntries = true)
     public void updateValue(String key, String value) {
+        if ("ai_api_key".equals(key)) {
+            if ("******".equals(value)) {
+                return; // 掩码占位符，说明未修改，直接返回
+            }
+            if (value != null && !value.trim().isEmpty()) {
+                value = com.example.backend.utils.EncryptionUtils.encrypt(value.trim());
+            }
+        }
         SystemSetting existing = systemSettingMapper.findByKey(key);
         if (existing == null) {
             SystemSetting newSetting = new SystemSetting();
             newSetting.setSettingKey(key);
             newSetting.setSettingValue(value);
             newSetting.setSettingType("string"); // Default type
-            newSetting.setDescription("Auto created setting");
+            if ("ai_api_key".equals(key)) {
+                newSetting.setDescription("AI API密钥");
+            } else {
+                newSetting.setDescription("Auto created setting");
+            }
             systemSettingMapper.insert(newSetting);
         } else {
             systemSettingMapper.updateValue(key, value);
