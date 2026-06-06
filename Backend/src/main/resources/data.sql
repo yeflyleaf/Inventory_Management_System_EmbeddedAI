@@ -13,6 +13,7 @@ INSERT IGNORE INTO system_setting (setting_key, setting_value, setting_type, des
 ('order_prefix_purchase', 'PO', 'string', '采购单编号前缀'),
 ('order_prefix_sales', 'SO', 'string', '销售单编号前缀'),
 ('allow_negative_stock', 'false', 'boolean', '是否允许负库存'),
+('inventory_backlog_days', '60', 'number', '库存积压预警天数'),
 ('ai_api_key', '', 'string', 'AI API密钥'),
 ('ai_base_url', 'https://api.openai.com/v1', 'string', 'AI API基础路径'),
 ('ai_model_name', 'gpt-5', 'string', 'AI模型名称'),

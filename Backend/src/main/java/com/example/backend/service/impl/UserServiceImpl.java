@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.dao.UserMapper;
@@ -28,6 +29,8 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private JwtUtils jwtUtils;
 
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
     /**
      * 用户登录处理
      * 1. 根据用户名查询用户
@@ -43,8 +46,23 @@ public class UserServiceImpl implements UserService {
     @Override
     public LoginVO login(LoginDTO loginDTO) {
         User user = userMapper.selectByUsername(loginDTO.getUsername());
-        if (user == null || !user.getPassword().equals(loginDTO.getPassword())) {
-            throw new RuntimeException("Invalid username or password");
+        if (user == null) {
+            throw new RuntimeException("用户名或密码错误");
+        }
+        // 兼容模式：先尝试 BCrypt 校验，失败后回退到明文比对（用于旧数据迁移过渡）
+        boolean passwordMatch;
+        if (user.getPassword().startsWith("$2a$") || user.getPassword().startsWith("$2b$")) {
+            passwordMatch = passwordEncoder.matches(loginDTO.getPassword(), user.getPassword());
+        } else {
+            // 旧明文密码：比对后自动升级为 BCrypt 哈希
+            passwordMatch = user.getPassword().equals(loginDTO.getPassword());
+            if (passwordMatch) {
+                user.setPassword(passwordEncoder.encode(loginDTO.getPassword()));
+                userMapper.update(user);
+            }
+        }
+        if (!passwordMatch) {
+            throw new RuntimeException("用户名或密码错误");
         }
         
         if (user.getStatus() != null && user.getStatus() == 0) {
@@ -90,7 +108,7 @@ public class UserServiceImpl implements UserService {
     public void addUser(UserAddDTO userAddDTO) {
         User user = new User();
         user.setUsername(userAddDTO.getUsername());
-        user.setPassword(userAddDTO.getPassword()); // TODO: Use BCrypt
+        user.setPassword(passwordEncoder.encode(userAddDTO.getPassword()));
         user.setNickname(userAddDTO.getNickname());
         user.setRole(userAddDTO.getRole());
         user.setPhone(userAddDTO.getPhone());

@@ -9,8 +9,6 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -28,12 +26,6 @@ public class ProductEmbeddingServiceImpl implements ProductEmbeddingService {
     @Autowired
     private ProductMapper productMapper;
 
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
-
-    @Value("${redis.vector.store.index-name:item_index}")
-    private String indexName;
-
     @Override
     @Async
     public void updateProductEmbedding(Product product) {
@@ -49,22 +41,28 @@ public class ProductEmbeddingServiceImpl implements ProductEmbeddingService {
                 product.getSalePrice() != null ? product.getSalePrice().toString() : "0.00"
         );
 
-        dev.langchain4j.data.document.Metadata metadata = new dev.langchain4j.data.document.Metadata();
+        Metadata metadata = new Metadata();
         metadata.add("productId", product.getId().toString());
         TextSegment segment = TextSegment.from(text, metadata);
         Embedding embedding = embeddingModel.embed(segment).content();
-        
-        // 存储商品的向量及其数据（使用商品ID作为唯一标识）
-        embeddingStore.add(embedding, segment);
+
+        // 使用 productId 作为显式 ID 存入向量库
+        // 这样后续可以通过 embeddingStore.remove(id) 精确删除
+        String embeddingId = "product-" + product.getId();
+        embeddingStore.add(embeddingId, embedding, segment);
     }
 
     @Override
     @Async
     public void deleteProductEmbedding(Long productId) {
         if (productId == null) return;
-        // RedisEmbeddingStore 中底层以 indexName + ":" + id 作为 Redis hash 键，直接通过 RedisTemplate 清理
-        String redisKey = indexName + ":" + productId;
-        redisTemplate.delete(redisKey);
+        // 使用与 add 时一致的 ID 来删除向量
+        String embeddingId = "product-" + productId;
+        try {
+            embeddingStore.remove(embeddingId);
+        } catch (Exception e) {
+            System.err.println("WARNING: Failed to delete product embedding for ID " + productId + ": " + e.getMessage());
+        }
     }
 
     @Override

@@ -8,10 +8,11 @@ version: '3.8'
 services:
   # --- Redis 缓存与向量数据库服务 ---
   redis:
-    image: redis/redis-stack-server:latest
+    image: redis/redis-stack:latest
     container_name: inventory_redis
     ports:
       - "6379:6379" # 暴露给宿主机，以便本地运行的后端服务可以连接
+      - "8001:8001" # 暴露 Redis Insight 控制台端口
     volumes:
       - redis_data:/data
     environment:

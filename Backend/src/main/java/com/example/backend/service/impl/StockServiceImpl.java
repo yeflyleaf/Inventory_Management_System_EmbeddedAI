@@ -18,6 +18,7 @@ import com.example.backend.entity.Product;
 import com.example.backend.entity.StockFlow;
 import com.example.backend.entity.Warehouse;
 import com.example.backend.service.StockService;
+import com.example.backend.service.SystemSettingService;
 import com.example.backend.vo.StockFlowVO;
 import com.example.backend.vo.StockVO;
 
@@ -35,6 +36,9 @@ public class StockServiceImpl implements StockService {
 
     @Autowired
     private WarehouseMapper warehouseMapper;
+
+    @Autowired
+    private SystemSettingService systemSettingService;
 
     /**
      * 获取库存快照
@@ -102,29 +106,7 @@ public class StockServiceImpl implements StockService {
     @Override
     public List<StockFlowVO> getStockFlows(Long itemId) {
         List<StockFlow> flows = stockFlowMapper.selectByItemId(itemId);
-        return flows.stream().map(flow -> {
-            StockFlowVO vo = new StockFlowVO();
-            vo.setId(flow.getId());
-            vo.setItemId(flow.getItemId());
-            vo.setChangeAmount(flow.getChangeAmount());
-            vo.setChangeType(flow.getChangeType());
-            vo.setRefType(flow.getRefType());
-            vo.setRefId(flow.getRefId());
-            vo.setWarehouseId(flow.getWarehouseId());
-            vo.setCreatedAt(flow.getCreatedAt());
-
-            Product product = productMapper.selectById(flow.getItemId());
-            if (product != null) {
-                vo.setItemName(product.getName());
-            }
-
-            Warehouse warehouse = warehouseMapper.selectById(flow.getWarehouseId());
-            if (warehouse != null) {
-                vo.setWarehouseName(warehouse.getName());
-            }
-
-            return vo;
-        }).collect(Collectors.toList());
+        return flows.stream().map(this::convertToFlowVO).collect(Collectors.toList());
     }
 
     /**
@@ -135,35 +117,13 @@ public class StockServiceImpl implements StockService {
     @Override
     public List<StockFlowVO> getAllStockFlows() {
         List<StockFlow> flows = stockFlowMapper.selectAll();
-        return flows.stream().map(flow -> {
-            StockFlowVO vo = new StockFlowVO();
-            vo.setId(flow.getId());
-            vo.setItemId(flow.getItemId());
-            vo.setChangeAmount(flow.getChangeAmount());
-            vo.setChangeType(flow.getChangeType());
-            vo.setRefType(flow.getRefType());
-            vo.setRefId(flow.getRefId());
-            vo.setWarehouseId(flow.getWarehouseId());
-            vo.setCreatedAt(flow.getCreatedAt());
-
-            Product product = productMapper.selectById(flow.getItemId());
-            if (product != null) {
-                vo.setItemName(product.getName());
-            }
-
-            Warehouse warehouse = warehouseMapper.selectById(flow.getWarehouseId());
-            if (warehouse != null) {
-                vo.setWarehouseName(warehouse.getName());
-            }
-
-            return vo;
-        }).collect(Collectors.toList());
+        return flows.stream().map(this::convertToFlowVO).collect(Collectors.toList());
     }
 
     /**
      * 调整库存
      * 记录一条库存流水，并更新库存状态
-     * 严格校验：不允许库存扣减后为负数
+     * 根据系统设置 allow_negative_stock 决定是否允许负库存
      * 操作完成后清空 'stock_snapshot' 缓存
      *
      * @param itemId       商品ID
@@ -172,15 +132,18 @@ public class StockServiceImpl implements StockService {
      * @param warehouseId  仓库ID
      * @param refType      关联单据类型
      * @param refId        关联单据ID/编号
-     * @throws RuntimeException 如果库存不足
+     * @throws RuntimeException 如果库存不足且不允许负库存
      */
     @Override
     @Transactional
     @CacheEvict(value = "stock_snapshot", allEntries = true)
     public void adjustStock(Long itemId, Integer changeAmount, String changeType, Long warehouseId, String refType,
             String refId) {
-        // Strict validation: Stock cannot be negative
-        if (changeAmount < 0) {
+        // 读取系统设置：是否允许负库存
+        boolean allowNegativeStock = systemSettingService.getBooleanValue("allow_negative_stock", false);
+        
+        // 出库操作时校验库存是否充足
+        if (!allowNegativeStock && changeAmount < 0) {
             Integer currentStock = stockFlowMapper.sumStockByItemIdAndWarehouseId(itemId, warehouseId);
             if (currentStock == null)
                 currentStock = 0;
@@ -213,5 +176,36 @@ public class StockServiceImpl implements StockService {
     public void deleteStock(Long itemId) {
         // 删除该商品的所有库存流水记录
         stockFlowMapper.deleteByItemId(itemId);
+    }
+
+    /**
+     * 将 StockFlow 实体转换为 StockFlowVO
+     * 关联查询商品名和仓库名
+     *
+     * @param flow StockFlow实体
+     * @return StockFlowVO视图对象
+     */
+    private StockFlowVO convertToFlowVO(StockFlow flow) {
+        StockFlowVO vo = new StockFlowVO();
+        vo.setId(flow.getId());
+        vo.setItemId(flow.getItemId());
+        vo.setChangeAmount(flow.getChangeAmount());
+        vo.setChangeType(flow.getChangeType());
+        vo.setRefType(flow.getRefType());
+        vo.setRefId(flow.getRefId());
+        vo.setWarehouseId(flow.getWarehouseId());
+        vo.setCreatedAt(flow.getCreatedAt());
+
+        Product product = productMapper.selectById(flow.getItemId());
+        if (product != null) {
+            vo.setItemName(product.getName());
+        }
+
+        Warehouse warehouse = warehouseMapper.selectById(flow.getWarehouseId());
+        if (warehouse != null) {
+            vo.setWarehouseName(warehouse.getName());
+        }
+
+        return vo;
     }
 }
