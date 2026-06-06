@@ -54,9 +54,6 @@ public class AiVectorConfig {
     @Value("${langchain4j.open-ai.chat-model.model-name:gpt-4o}")
     private String chatModelName;
 
-    @Value("${langchain4j.open-ai.chat-model.temperature:0.7}")
-    private Double chatTemperature;
-
     @Autowired
     private ObjectProvider<com.example.backend.service.SystemSettingService> systemSettingServiceProvider;
 
@@ -87,12 +84,12 @@ public class AiVectorConfig {
 
     @Bean
     public ChatLanguageModel chatLanguageModel() {
-        return new DynamicChatLanguageModel(chatBaseUrl, chatApiKey, chatModelName, chatTemperature, systemSettingServiceProvider);
+        return new DynamicChatLanguageModel(chatBaseUrl, chatApiKey, chatModelName, systemSettingServiceProvider);
     }
 
     @Bean
     public StreamingChatLanguageModel streamingChatLanguageModel() {
-        return new DynamicStreamingChatLanguageModel(chatBaseUrl, chatApiKey, chatModelName, chatTemperature, systemSettingServiceProvider);
+        return new DynamicStreamingChatLanguageModel(chatBaseUrl, chatApiKey, chatModelName, systemSettingServiceProvider);
     }
 
     @Bean

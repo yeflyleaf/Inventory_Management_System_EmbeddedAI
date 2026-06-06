@@ -335,7 +335,9 @@ public class AdminController {
         actionMap.put("ai_api_key", "修改AI API密钥");
         actionMap.put("ai_base_url", "修改AI API基础路径");
         actionMap.put("ai_model_name", "修改AI模型名称");
-        actionMap.put("ai_temperature", "修改AI温度参数");
+        actionMap.put("ai_max_rpm", "修改AI最高RPM限制");
+        actionMap.put("ai_max_tpm", "修改AI最高TPM限制(输入)");
+        actionMap.put("ai_max_rpd", "修改AI最高RPD限制");
 
         Long userId = (Long) request.getAttribute("userId");
         String username = null;

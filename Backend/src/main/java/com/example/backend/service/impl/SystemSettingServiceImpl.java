@@ -122,21 +122,27 @@ public class SystemSettingServiceImpl implements SystemSettingService {
             SystemSetting newSetting = new SystemSetting();
             newSetting.setSettingKey(key);
             newSetting.setSettingValue(value);
-            if ("ai_temperature".equals(key)) {
-                newSetting.setSettingType("number");
-            } else {
-                newSetting.setSettingType("string"); // Default type
-            }
             if ("ai_api_key".equals(key)) {
                 newSetting.setDescription("AI API密钥");
+                newSetting.setSettingType("string");
             } else if ("ai_base_url".equals(key)) {
                 newSetting.setDescription("AI API基础路径");
+                newSetting.setSettingType("string");
             } else if ("ai_model_name".equals(key)) {
                 newSetting.setDescription("AI模型名称");
-            } else if ("ai_temperature".equals(key)) {
-                newSetting.setDescription("AI温度参数");
+                newSetting.setSettingType("string");
+            } else if ("ai_max_rpm".equals(key)) {
+                newSetting.setDescription("AI最高RPM限制");
+                newSetting.setSettingType("number");
+            } else if ("ai_max_tpm".equals(key)) {
+                newSetting.setDescription("AI最高TPM限制(输入)");
+                newSetting.setSettingType("number");
+            } else if ("ai_max_rpd".equals(key)) {
+                newSetting.setDescription("AI最高RPD限制");
+                newSetting.setSettingType("number");
             } else {
                 newSetting.setDescription("Auto created setting");
+                newSetting.setSettingType("string");
             }
             systemSettingMapper.insert(newSetting);
         } else {

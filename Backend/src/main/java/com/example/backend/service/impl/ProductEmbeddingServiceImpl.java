@@ -31,7 +31,10 @@ public class ProductEmbeddingServiceImpl implements ProductEmbeddingService {
     public void updateProductEmbedding(Product product) {
         if (product == null || product.getId() == null) return;
 
-        // 构建结构化描述文本以便计算嵌入向量
+        // 1. 先删除可能存在的旧向量（避免重复）
+        deleteProductEmbedding(product.getId());
+
+        // 2. 构建结构化描述文本以便计算嵌入向量
         String text = String.format("商品名称: %s, SKU编码: %s, 商品分类: %s, 计量单位: %s, 条码: %s, 销售价格: %s元",
                 product.getName(),
                 product.getSku(),
@@ -46,20 +49,20 @@ public class ProductEmbeddingServiceImpl implements ProductEmbeddingService {
         TextSegment segment = TextSegment.from(text, metadata);
         Embedding embedding = embeddingModel.embed(segment).content();
 
-        // 使用 productId 作为显式 ID 存入向量库
-        // 这样后续可以通过 embeddingStore.remove(id) 精确删除
-        String embeddingId = "product-" + product.getId();
-        embeddingStore.add(embeddingId, embedding, segment);
+        // 3. 写入向量库
+        embeddingStore.add(embedding, segment);
     }
 
     @Override
     @Async
     public void deleteProductEmbedding(Long productId) {
         if (productId == null) return;
-        // 使用与 add 时一致的 ID 来删除向量
-        String embeddingId = "product-" + productId;
         try {
-            embeddingStore.remove(embeddingId);
+            // 使用 metadata 中的 productId 作为 Filter 来精确删除
+            dev.langchain4j.store.embedding.filter.Filter filter = 
+                    dev.langchain4j.store.embedding.filter.MetadataFilterBuilder.metadataKey("productId")
+                            .isEqualTo(productId.toString());
+            embeddingStore.removeAll(filter);
         } catch (Exception e) {
             System.err.println("WARNING: Failed to delete product embedding for ID " + productId + ": " + e.getMessage());
         }

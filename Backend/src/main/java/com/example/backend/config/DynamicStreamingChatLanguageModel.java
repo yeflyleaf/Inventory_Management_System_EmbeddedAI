@@ -20,18 +20,16 @@ public class DynamicStreamingChatLanguageModel implements StreamingChatLanguageM
     private final String chatBaseUrl;
     private final String defaultApiKey;
     private final String chatModelName;
-    private final Double chatTemperature;
     private final ObjectProvider<SystemSettingService> systemSettingServiceProvider;
 
     private volatile String cachedKey = null;
     private volatile StreamingChatLanguageModel cachedModel = null;
 
     public DynamicStreamingChatLanguageModel(String chatBaseUrl, String defaultApiKey, String chatModelName, 
-                                             Double chatTemperature, ObjectProvider<SystemSettingService> systemSettingServiceProvider) {
+                                             ObjectProvider<SystemSettingService> systemSettingServiceProvider) {
         this.chatBaseUrl = chatBaseUrl;
         this.defaultApiKey = defaultApiKey;
         this.chatModelName = chatModelName;
-        this.chatTemperature = chatTemperature;
         this.systemSettingServiceProvider = systemSettingServiceProvider;
     }
 
@@ -39,7 +37,6 @@ public class DynamicStreamingChatLanguageModel implements StreamingChatLanguageM
         String apiKey = defaultApiKey;
         String baseUrl = chatBaseUrl;
         String modelName = chatModelName;
-        Double temperature = chatTemperature;
 
         try {
             SystemSettingService systemSettingService = systemSettingServiceProvider.getIfAvailable();
@@ -61,23 +58,13 @@ public class DynamicStreamingChatLanguageModel implements StreamingChatLanguageM
                 if (dbModelName != null && !dbModelName.trim().isEmpty()) {
                     modelName = dbModelName.trim();
                 }
-
-                // 4. Temperature
-                String dbTemp = systemSettingService.getValue("ai_temperature");
-                if (dbTemp != null && !dbTemp.trim().isEmpty()) {
-                    try {
-                        temperature = Double.parseDouble(dbTemp.trim());
-                    } catch (NumberFormatException e) {
-                        System.err.println("Failed to parse dynamic AI temperature for streaming: " + dbTemp);
-                    }
-                }
             }
         } catch (Exception e) {
             System.err.println("Failed to load dynamic AI settings for streaming, using defaults: " + e.getMessage());
         }
 
         // Cache check: rebuild only if any of the dynamic properties have changed.
-        String currentCacheKey = String.format("%s|%s|%s|%s", apiKey, baseUrl, modelName, temperature);
+        String currentCacheKey = String.format("%s|%s|%s", apiKey, baseUrl, modelName);
         if (cachedModel != null && currentCacheKey.equals(cachedKey)) {
             return cachedModel;
         }
@@ -87,7 +74,6 @@ public class DynamicStreamingChatLanguageModel implements StreamingChatLanguageM
                 .baseUrl(baseUrl)
                 .apiKey(apiKey)
                 .modelName(modelName)
-                .temperature(temperature)
                 .timeout(Duration.ofSeconds(60))
                 .build();
         return cachedModel;

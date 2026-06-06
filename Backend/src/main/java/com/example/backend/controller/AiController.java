@@ -19,6 +19,9 @@ import dev.langchain4j.data.message.ChatMessageDeserializer;
 import java.util.List;
 import java.util.ArrayList;
 
+import com.example.backend.service.SystemSettingService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 /**
@@ -30,6 +33,8 @@ import java.io.IOException;
 @CrossOrigin
 public class AiController {
 
+    private static final Logger logger = LoggerFactory.getLogger(AiController.class);
+
     @Autowired
     private WarehouseAiAssistant aiAssistant;
 
@@ -38,6 +43,9 @@ public class AiController {
 
     @Autowired
     private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private SystemSettingService systemSettingService;
 
     /**
      * 获取当前登录用户的 AI 对话历史记录
@@ -89,6 +97,98 @@ public class AiController {
         Long userId = (Long) request.getAttribute("userId");
         String memoryId = userId != null ? userId.toString() : "anonymous";
 
+        // 速率限制检查 (RPM & 输入 TPM & RPD)
+        String rawRpm = systemSettingService.getValue("ai_max_rpm");
+        String rawTpm = systemSettingService.getValue("ai_max_tpm");
+        String rawRpd = systemSettingService.getValue("ai_max_rpd");
+
+        long currentMinute = System.currentTimeMillis() / 60000;
+        String currentDay = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+        String rpmKey = "ai:ratelimit:rpm:" + currentMinute;
+        String tpmKey = "ai:ratelimit:tpm:" + currentMinute;
+        String rpdKey = "ai:ratelimit:rpd:" + currentDay;
+
+        int estimatedPromptTokens = estimateTokens(message);
+
+        boolean rpmIncremented = false;
+        boolean tpmIncremented = false;
+
+        try {
+            // 1. 检查并递增 RPM
+            if (rawRpm != null && !rawRpm.trim().isEmpty()) {
+                int maxRpm = Integer.parseInt(rawRpm.trim());
+                Long currentRpm = redisTemplate.opsForValue().increment(rpmKey, 1);
+                if (currentRpm != null) {
+                    rpmIncremented = true;
+                    if (currentRpm == 1) {
+                        redisTemplate.expire(rpmKey, java.time.Duration.ofMinutes(2));
+                    }
+                    if (currentRpm > maxRpm) {
+                        redisTemplate.opsForValue().decrement(rpmKey, 1);
+                        rpmIncremented = false;
+                        response.setStatus(429);
+                        response.setCharacterEncoding("UTF-8");
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"success\":false,\"message\":\"AI 服务调用过于频繁，已达到系统最高 RPM 限制（" + maxRpm + "次/分钟），请稍后再试。\"}");
+                        response.getWriter().flush();
+                        return null;
+                    }
+                }
+            }
+
+            // 2. 检查并递增 TPM (只对输入限制)
+            if (rawTpm != null && !rawTpm.trim().isEmpty()) {
+                int maxTpm = Integer.parseInt(rawTpm.trim());
+                String currentTpmStr = redisTemplate.opsForValue().get(tpmKey);
+                long currentTpm = currentTpmStr != null ? Long.parseLong(currentTpmStr) : 0;
+                if (currentTpm + estimatedPromptTokens > maxTpm) {
+                    if (rpmIncremented) {
+                        redisTemplate.opsForValue().decrement(rpmKey, 1);
+                    }
+                    response.setStatus(429);
+                    response.setCharacterEncoding("UTF-8");
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"success\":false,\"message\":\"AI 服务 Token 使用率过高，已达到系统最高 TPM 限制（输入：" + maxTpm + " tokens/分钟），请稍后再试。\"}");
+                    response.getWriter().flush();
+                    return null;
+                }
+                redisTemplate.opsForValue().increment(tpmKey, estimatedPromptTokens);
+                tpmIncremented = true;
+                redisTemplate.expire(tpmKey, java.time.Duration.ofMinutes(2));
+            }
+
+            // 3. 检查并递增 RPD
+            if (rawRpd != null && !rawRpd.trim().isEmpty()) {
+                int maxRpd = Integer.parseInt(rawRpd.trim());
+                Long currentRpd = redisTemplate.opsForValue().increment(rpdKey, 1);
+                if (currentRpd != null) {
+                    if (currentRpd == 1) {
+                        redisTemplate.expire(rpdKey, java.time.Duration.ofDays(2));
+                    }
+                    if (currentRpd > maxRpd) {
+                        redisTemplate.opsForValue().decrement(rpdKey, 1);
+                        if (rpmIncremented) {
+                            redisTemplate.opsForValue().decrement(rpmKey, 1);
+                        }
+                        if (tpmIncremented) {
+                            redisTemplate.opsForValue().decrement(tpmKey, estimatedPromptTokens);
+                        }
+                        response.setStatus(429);
+                        response.setCharacterEncoding("UTF-8");
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"success\":false,\"message\":\"AI 服务调用已达每日上限，已达到系统最高 RPD 限制（" + maxRpd + "次/天），请明天再试。\"}");
+                        response.getWriter().flush();
+                        return null;
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            // Redis 异常时记录日志并降级放行，保证服务可用性
+            logger.warn("AI 速率限制检查时遇到异常，已绕过限制: {}", e.getMessage());
+        }
+
         // 设置2分钟超时时间
         SseEmitter emitter = new SseEmitter(120000L);
 
@@ -124,6 +224,14 @@ public class AiController {
                 .start();
 
         return emitter;
+    }
+
+    private int estimateTokens(String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        // 估算 Token：字符长度 * 2
+        return (int) Math.ceil(text.length() * 2.0);
     }
 
     /**

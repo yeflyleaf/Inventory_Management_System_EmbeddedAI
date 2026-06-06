@@ -20,7 +20,9 @@ export const useSettingsStore = defineStore('settings', {
       ai_api_key: '',
       ai_base_url: 'https://api.openai.com/v1',
       ai_model_name: 'gpt-5',
-      ai_temperature: '0.7'
+      ai_max_rpm: '500',
+      ai_max_tpm: '2000000',
+      ai_max_rpd: '10000'
     },
     loaded: false
   }),
@@ -31,7 +33,10 @@ export const useSettingsStore = defineStore('settings', {
     inventoryBacklogDays: (state) => parseInt(state.settings.inventory_backlog_days) || 60,
     allowNegativeStock: (state) => state.settings.allow_negative_stock === 'true',
     purchasePrefix: (state) => state.settings.order_prefix_purchase || 'PO',
-    salesPrefix: (state) => state.settings.order_prefix_sales || 'SO'
+    salesPrefix: (state) => state.settings.order_prefix_sales || 'SO',
+    aiMaxRpm: (state) => state.settings.ai_max_rpm ? parseInt(state.settings.ai_max_rpm) : null,
+    aiMaxTpm: (state) => state.settings.ai_max_tpm ? parseInt(state.settings.ai_max_tpm) : null,
+    aiMaxRpd: (state) => state.settings.ai_max_rpd ? parseInt(state.settings.ai_max_rpd) : null
   },
 
   actions: {

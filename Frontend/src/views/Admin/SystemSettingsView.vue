@@ -164,16 +164,37 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>AI 温度参数 (Temperature)</label>
-            <div class="input-with-suffix">
-              <input v-model="settings.ai_temperature" type="number" min="0" max="2" step="0.1" placeholder="0.7">
-            </div>
-            <span class="form-help">数值越大回复越随机（范围 0 至 2），默认 0.7</span>
-          </div>
-          <div class="form-group">
             <label>AI API 密钥 (API Key)</label>
             <input v-model="settings.ai_api_key" type="password" placeholder="请输入 AI 接口 API 密钥 (例如: sk-...)">
             <span class="form-help">保存后密钥将被加密存储。若已保存，此处显示 ******，重新输入可覆盖。</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>每分钟请求数限制 (RPM)</label>
+            <div class="input-with-suffix">
+              <input v-model="settings.ai_max_rpm" type="number" min="1" placeholder="留空表示无限制">
+              <span class="suffix">次/分</span>
+            </div>
+            <span class="form-help">使用时每分钟最高 API 请求次数（默认 500）</span>
+          </div>
+          <div class="form-group">
+            <label>每分钟 Token 数限制（输入）(TPM)</label>
+            <div class="input-with-suffix">
+              <input v-model="settings.ai_max_tpm" type="number" min="1" placeholder="留空表示无限制">
+              <span class="suffix">tokens/分</span>
+            </div>
+            <span class="form-help">使用时每分钟最高消耗输入 Token 数量（默认 2,000,000）</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>每日请求数限制 (RPD)</label>
+            <div class="input-with-suffix">
+              <input v-model="settings.ai_max_rpd" type="number" min="1" placeholder="留空表示无限制">
+              <span class="suffix">次/天</span>
+            </div>
+            <span class="form-help">每日最高 API 请求次数（默认 10,000）</span>
           </div>
         </div>
       </div>
@@ -224,7 +245,9 @@ const settings = ref({
   ai_api_key: '',
   ai_base_url: 'https://api.openai.com/v1',
   ai_model_name: 'gpt-5',
-  ai_temperature: '0.7'
+  ai_max_rpm: '500',
+  ai_max_tpm: '2000000',
+  ai_max_rpd: '10000'
 })
 
 const originalSettings = ref({})

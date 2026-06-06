@@ -49,14 +49,14 @@
 
 ### AI 嵌入与核心架构六大支柱
 
-| 核心组件 | 技术实现 | 功能描述 |
-| :--- | :--- | :--- |
-| **智能对话服务** | **SSE / SseEmitter** | 提供类似 ChatGPT 的流式问答面板，且不同账号的聊天历史互不影响。 |
-| **RAG 语义搜索** | **LangChain4j + Redis Stack** | 支持用大白话模糊搜索商品（例如输入“数码产品”，智能找出手机、电脑等商品）。 |
-| **智能工具调用** | **Function Calling (`@Tool`)** | 允许 AI 在回答问题时，自己决定调用后台接口查询实时的库存和统计数据。 |
-| **异步向量同步** | **Spring AOP + `@Async`** | 当商品发生增删改时，AI 脑子里的商品数据会自动在后台同步，不卡顿系统。 |
-| **多端跨平台支持** | **Electron + Capacitor** | 使用同一套网页前端代码，可以同时打包并运行在浏览器、电脑软件和手机 App 上。 |
-| **基础进销存业务** | **Spring Boot 3 + ECharts** | 包含常规的采购、销售和库存管理，并用图表展示业务报表，支持扫码记账。 |
+| 核心组件           | 技术实现                       | 功能描述                                                                    |
+| :----------------- | :----------------------------- | :-------------------------------------------------------------------------- |
+| **智能对话服务**   | **SSE / SseEmitter**           | 提供类似 ChatGPT 的流式问答面板，且不同账号的聊天历史互不影响。             |
+| **RAG 语义搜索**   | **LangChain4j + Redis Stack**  | 支持用大白话模糊搜索商品（例如输入“数码产品”，智能找出手机、电脑等商品）。  |
+| **智能工具调用**   | **Function Calling (`@Tool`)** | 允许 AI 在回答问题时，自己决定调用后台接口查询实时的库存和统计数据。        |
+| **异步向量同步**   | **Spring AOP + `@Async`**      | 当商品发生增删改时，AI 脑子里的商品数据会自动在后台同步，不卡顿系统。       |
+| **多端跨平台支持** | **Electron + Capacitor**       | 使用同一套网页前端代码，可以同时打包并运行在浏览器、电脑软件和手机 App 上。 |
+| **基础进销存业务** | **Spring Boot 3 + ECharts**    | 包含常规的采购、销售和库存管理，并用图表展示业务报表，支持扫码记账。        |
 
 ---
 
@@ -159,9 +159,9 @@ npm run electron:dev
 
 进入后端工程目录并执行：
 
-```powershell
+```bash
 cd Backend
-.\mvnw.cmd spring-boot:run
+./mvnw.cmd spring-boot:run
 ```
 
 服务启动成功后将监听地址: **http://localhost:8080**
@@ -196,7 +196,6 @@ MYSQL_PASSWORD=your_password
 AI_BASE_URL=https://api.openai.com/v1
 AI_API_KEY=your_api_key
 AI_MODEL_NAME=gpt
-AI_TEMPERATURE=0.7
 
 # 域名配置
 DOMAIN_NAME=localhost

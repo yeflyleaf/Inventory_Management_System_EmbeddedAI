@@ -6,7 +6,6 @@
   <div class="ai-assistant-wrapper">
     <!-- 悬浮球按钮 -->
     <button class="ai-floating-btn" :class="{ 'panel-open': isOpen }" @click="togglePanel" title="AI 仓储助手">
-      <div class="glow-effect"></div>
       <svg class="ai-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="currentColor"/>
         <path d="M8 13C8.55228 13 9 12.5523 9 12C9 11.4477 8.55228 11 8 11C7.44772 11 7 11.4477 7 12C7 12.5523 7.44772 13 8 13Z" fill="currentColor"/>
@@ -21,17 +20,25 @@
       <!-- 头部 -->
       <div class="panel-header">
         <div class="header-info">
-          <div class="assistant-avatar">🤖</div>
+          <div class="header-avatar-badge">AI</div>
           <div class="title-meta">
-            <h4>AI 智能仓储助手</h4>
+            <h4>AI 仓储助手</h4>
             <span class="status-online"><span class="dot"></span>在线分析中</span>
           </div>
         </div>
         <div class="header-actions">
           <button class="action-btn reindex-btn" @click="triggerReindex" :disabled="isReindexing" title="全量商品向量同步">
-            🔄 {{ isReindexing ? '同步中...' : '同步向量' }}
+            <svg class="icon-sync" :class="{ 'spinning': isReindexing }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            {{ isReindexing ? '正在同步...' : '同步商品数据' }}
           </button>
-          <button class="close-btn" @click="isOpen = false" title="关闭面板">&times;</button>
+          <button class="close-btn" @click="isOpen = false" title="关闭面板">
+            <svg class="close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -39,30 +46,34 @@
       <div class="chat-messages" ref="messageContainer">
         <!-- 欢迎卡片 -->
         <div class="welcome-card" v-if="messages.length === 0">
-          <div class="welcome-icon">✨</div>
-          <h3>您好，我是您的 AI 仓储分析师！</h3>
-          <p>我可以帮您查询实时库存、寻找低库存商品、统计分类占比并给出补货建议。您可以点击下方快捷指令开始：</p>
+          <div class="welcome-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+          </div>
+          <h3>欢迎使用 AI 仓储助手</h3>
+          <p>我可以为您提供实时库存查询、低库存商品预警、品类占比统计及补货建议。请选择下方快捷指令或在输入框中直接提问：</p>
           
           <div class="quick-chips">
-            <button class="chip" @click="sendQuickPrompt('🔍 哪些商品快断货了？')">
-              <span class="chip-icon">⚠️</span> 低库存警报
+            <button class="chip" @click="sendQuickPrompt('哪些商品处于低库存状态？')">
+              低库存预警
             </button>
-            <button class="chip" @click="sendQuickPrompt('📊 统计一下各个分类的库存占比？')">
-              <span class="chip-icon">📈</span> 品类库存分布
+            <button class="chip" @click="sendQuickPrompt('统计各商品分类的库存占比？')">
+              品类库存统计
             </button>
-            <button class="chip" @click="sendQuickPrompt('📋 根据当前低库存情况，帮我生成一份详细的补货建议？')">
-              <span class="chip-icon">✍️</span> 生成补货方案
+            <button class="chip" @click="sendQuickPrompt('基于当前低库存情况，生成补货建议')">
+              生成补货建议
             </button>
-            <button class="chip" @click="sendQuickPrompt('📦 仓库里有哪些商品？')">
-              <span class="chip-icon">🛍️</span> 商品规格查询
+            <button class="chip" @click="sendQuickPrompt('查询仓库所有商品列表')">
+              商品列表查询
             </button>
           </div>
         </div>
 
         <!-- 消息列表 -->
         <div v-else v-for="(msg, index) in messages" :key="index" :class="['message-item', msg.role]">
-          <div class="msg-avatar" v-if="msg.role === 'assistant'">🤖</div>
-          <div class="msg-avatar user" v-else>👤</div>
+          <div class="msg-avatar" v-if="msg.role === 'assistant'">AI</div>
+          <div class="msg-avatar user" v-else>我</div>
           
           <div class="msg-bubble">
             <div class="msg-text" v-html="renderMarkdown(msg.content)"></div>
@@ -72,7 +83,7 @@
 
         <!-- 加载中动画 -->
         <div class="message-item assistant loading" v-if="isLoading">
-          <div class="msg-avatar">🤖</div>
+          <div class="msg-avatar">AI</div>
           <div class="msg-bubble">
             <div class="typing-indicator">
               <span></span>
@@ -194,7 +205,7 @@ const triggerReindex = async () => {
   const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   messages.value.push({
     role: 'assistant',
-    content: '_正在重建全量商品向量索引，请稍候..._',
+    content: '正在同步商品向量数据，请稍候...',
     time: timeStr
   })
   scrollToBottom()
@@ -211,7 +222,7 @@ const triggerReindex = async () => {
     if (res.ok) {
       messages.value.push({
         role: 'assistant',
-        content: '✅ **向量重建同步完成！** 所有商品已被转化为特征向量同步至 Redis Search，您现在可以进行智能商品与库存分析了。',
+        content: '商品向量数据同步完成。所有商品已成功转化为特征向量并导入 Redis 搜索引擎，现在您可以进行商品与库存智能分析了。',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       })
     } else {
@@ -220,7 +231,7 @@ const triggerReindex = async () => {
   } catch (error) {
     messages.value.push({
       role: 'assistant',
-      content: `❌ **向量同步失败**: ${error.message}。请确认 Redis Stack 服务以及后端是否配置正常。`,
+      content: `商品向量同步失败: ${error.message}。请检查 Redis 搜索引擎服务及后端接口配置是否正常。`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     })
   } finally {
@@ -270,6 +281,15 @@ const sendMessage = async () => {
       if (response.status === 401) {
         throw new Error('登录已过期，请重新登录')
       }
+      try {
+        const text = await response.text()
+        const errJson = JSON.parse(text)
+        if (errJson && errJson.message) {
+          throw new Error(errJson.message)
+        }
+      } catch (e) {
+        // Ignore parsing errors, fall back to default status message
+      }
       throw new Error(`连接服务失败，状态码: ${response.status}`)
     }
 
@@ -313,7 +333,7 @@ const sendMessage = async () => {
     }
   } catch (error) {
     isLoading.value = false
-    messages.value[assistantMsgIndex].content = `⚠️ **发生错误**: ${error.message}`
+    messages.value[assistantMsgIndex].content = `请求失败: ${error.message}。请检查网络连接或接口配置。`
     messages.value[assistantMsgIndex].time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     scrollToBottom()
   }
@@ -342,7 +362,7 @@ const renderMarkdown = (text) => {
   // 4. 解析列表项: - item 样式
   html = html.replace(/^\s*-\s+(.+)$/gm, '<li>$1</li>')
   html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul class="md-list">$1</ul>')
-  // 合并相邻的 ul 元素
+  // 合并相邻 of ul 元素
   html = html.replace(/<\/ul>\s*<ul class="md-list">/g, '')
 
   // 5. 解析换行
@@ -361,58 +381,40 @@ const renderMarkdown = (text) => {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* 悬浮球核心样式 */
+/* 悬浮球样式 - 简洁实用 */
 .ai-floating-btn {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-color: #2c3e50;
   color: white;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(44, 62, 80, 0.15);
   position: relative;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   outline: none;
 }
 
 .ai-floating-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.6);
+  background-color: #3498db;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(52, 152, 219, 0.3);
 }
 
 .ai-floating-btn.panel-open {
-  transform: rotate(90deg) scale(0.95);
-  background: #ff5252;
-  box-shadow: 0 4px 12px rgba(255, 82, 82, 0.4);
+  background-color: #e2e8f0;
+  color: #475569;
+  box-shadow: none;
+  transform: scale(0.95);
 }
 
 .ai-icon {
-  width: 28px;
-  height: 28px;
-  transition: transform 0.3s;
-}
-
-/* 气泡呼吸灯特效 */
-.glow-effect {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border-radius: 50%;
-  box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.5);
-  animation: pulse 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1);
-  pointer-events: none;
-}
-
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7); }
-  70% { box-shadow: 0 0 0 15px rgba(102, 126, 234, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
+  width: 24px;
+  height: 24px;
 }
 
 .btn-tooltip {
@@ -427,7 +429,7 @@ const renderMarkdown = (text) => {
   opacity: 0;
   visibility: hidden;
   transform: translateX(10px);
-  transition: all 0.3s;
+  transition: all 0.2s ease;
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
@@ -437,21 +439,19 @@ const renderMarkdown = (text) => {
   transform: translateX(0);
 }
 
-/* 侧边滑出控制台 */
+/* 侧边对话面板 */
 .ai-chat-panel {
   position: fixed;
   top: 0;
   right: -430px;
   width: 400px;
   height: 100vh;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.08);
-  border-left: 1px solid rgba(255, 255, 255, 0.45);
+  background: #ffffff;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.05);
+  border-left: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
-  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: auto;
 }
 
@@ -462,11 +462,11 @@ const renderMarkdown = (text) => {
 /* 头部样式 */
 .panel-header {
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(255, 255, 255, 0.5);
+  background: #ffffff;
 }
 
 .header-info {
@@ -475,20 +475,30 @@ const renderMarkdown = (text) => {
   gap: 12px;
 }
 
-.assistant-avatar {
-  font-size: 1.6rem;
+.header-avatar-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
 .title-meta h4 {
   margin: 0;
   font-size: 1rem;
-  color: #2c3e50;
-  font-weight: 700;
+  color: #1e293b;
+  font-weight: 600;
 }
 
 .status-online {
   font-size: 0.7rem;
-  color: #2ecc71;
+  color: #10b981;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -499,10 +509,9 @@ const renderMarkdown = (text) => {
 .status-online .dot {
   width: 6px;
   height: 6px;
-  background-color: #2ecc71;
+  background-color: #10b981;
   border-radius: 50%;
   display: inline-block;
-  box-shadow: 0 0 6px #2ecc71;
 }
 
 .header-actions {
@@ -512,20 +521,24 @@ const renderMarkdown = (text) => {
 }
 
 .reindex-btn {
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-  color: white;
-  border: none;
+  background-color: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
-  box-shadow: 0 2px 6px rgba(17, 153, 142, 0.2);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .reindex-btn:hover:not(:disabled) {
-  opacity: 0.9;
+  background-color: #f1f5f9;
+  color: #1e293b;
+  border-color: #cbd5e1;
 }
 
 .reindex-btn:disabled {
@@ -533,18 +546,36 @@ const renderMarkdown = (text) => {
   cursor: not-allowed;
 }
 
+.icon-sync {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-sync.spinning {
+  animation: spin 1s linear infinite;
+}
+
 .close-btn {
   background: none;
   border: none;
-  font-size: 1.5rem;
-  color: #7f8c8d;
   cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
 .close-btn:hover {
-  color: #333;
+  background-color: #f1f5f9;
+  color: #1e293b;
+}
+
+.close-icon {
+  width: 18px;
+  height: 18px;
 }
 
 /* 消息对话列表区 */
@@ -555,69 +586,71 @@ const renderMarkdown = (text) => {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  background: rgba(248, 249, 250, 0.4);
+  background: #f8fafc;
 }
 
 /* 欢迎引导卡片 */
 .welcome-card {
+  padding: 24px 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
   text-align: center;
-  padding: 30px 20px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 16px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.02);
-  border: 1px solid rgba(255, 255, 255, 0.9);
   margin-top: 10px;
 }
 
 .welcome-icon {
-  font-size: 2.2rem;
-  margin-bottom: 12px;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px auto;
+  color: #3498db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome-icon svg {
+  width: 32px;
+  height: 32px;
 }
 
 .welcome-card h3 {
   margin: 0 0 8px;
-  font-size: 1.1rem;
-  color: #2c3e50;
-  font-weight: 700;
+  font-size: 1.05rem;
+  color: #1e293b;
+  font-weight: 600;
 }
 
 .welcome-card p {
   font-size: 0.85rem;
-  color: #7f8c8d;
+  color: #64748b;
   line-height: 1.5;
-  margin: 0 0 20px;
+  margin: 0 0 16px;
 }
 
 .quick-chips {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .chip {
-  background: #f1f2f6;
-  border: 1px solid rgba(0,0,0,0.04);
-  padding: 8px 14px;
-  border-radius: 20px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 16px;
   font-size: 0.8rem;
   color: #475569;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
   transition: all 0.2s ease;
   font-weight: 500;
 }
 
 .chip:hover {
   background: #e2e8f0;
-  transform: scale(1.03);
-  color: #667eea;
-}
-
-.chip-icon {
-  font-size: 0.9rem;
+  color: #3498db;
+  border-color: #cbd5e1;
 }
 
 /* 对话气泡通用 */
@@ -631,49 +664,52 @@ const renderMarkdown = (text) => {
 .message-item.user {
   align-self: flex-end;
   flex-direction: row-reverse;
-  max-width: 85%;
 }
 
 .msg-avatar {
   width: 32px;
   height: 32px;
-  background: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  font-size: 1.1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
-.msg-avatar.user {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  font-size: 0.95rem;
+.assistant .msg-avatar {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.user .msg-avatar {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
 }
 
 .msg-bubble {
   padding: 12px 16px;
-  border-radius: 16px;
+  border-radius: 12px;
   font-size: 0.88rem;
   line-height: 1.5;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
 .assistant .msg-bubble {
-  background: white;
-  color: #2c3e50;
+  background: #ffffff;
+  color: #334155;
   border-top-left-radius: 2px;
-  border: 1px solid rgba(0,0,0,0.04);
+  border: 1px solid #e2e8f0;
 }
 
 .user .msg-bubble {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: #2c3e50;
+  color: #ffffff;
   border-top-right-radius: 2px;
 }
 
@@ -685,7 +721,7 @@ const renderMarkdown = (text) => {
 }
 
 .user .msg-time {
-  color: rgba(255,255,255,0.7);
+  color: #94a3b8;
 }
 
 /* 消息内容渲染支持 Markdown */
@@ -710,7 +746,7 @@ const renderMarkdown = (text) => {
 }
 
 .user .msg-text :deep(.inline-code) {
-  background: rgba(0,0,0,0.2);
+  background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
 
@@ -750,36 +786,37 @@ const renderMarkdown = (text) => {
 /* 底部输入框 */
 .panel-input-area {
   padding: 16px 20px;
-  border-top: 1px solid rgba(0,0,0,0.06);
+  border-top: 1px solid #e2e8f0;
   display: flex;
   gap: 12px;
   align-items: flex-end;
-  background: rgba(255, 255, 255, 0.7);
+  background: #ffffff;
 }
 
 .panel-input-area textarea {
   flex: 1;
-  border: 1px solid rgba(0,0,0,0.1);
-  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   padding: 10px 14px;
   font-size: 0.88rem;
   resize: none;
   outline: none;
   font-family: inherit;
   line-height: 1.4;
-  background: white;
+  background: #ffffff;
   transition: border-color 0.2s;
+  color: #1e293b;
 }
 
 .panel-input-area textarea:focus {
-  border-color: #667eea;
+  border-color: #3498db;
 }
 
 .send-btn {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  background-color: #3498db;
   color: white;
   border: none;
   cursor: pointer;
@@ -788,24 +825,25 @@ const renderMarkdown = (text) => {
   justify-content: center;
   transition: all 0.2s;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
 }
 
 .send-btn:hover:not(:disabled) {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  background-color: #2980b9;
 }
 
 .send-btn:disabled {
   background: #cbd5e1;
   color: #94a3b8;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 .send-btn svg {
   width: 18px;
   height: 18px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* 适配移动端 */
