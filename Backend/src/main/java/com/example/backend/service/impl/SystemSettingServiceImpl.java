@@ -122,9 +122,19 @@ public class SystemSettingServiceImpl implements SystemSettingService {
             SystemSetting newSetting = new SystemSetting();
             newSetting.setSettingKey(key);
             newSetting.setSettingValue(value);
-            newSetting.setSettingType("string"); // Default type
+            if ("ai_temperature".equals(key)) {
+                newSetting.setSettingType("number");
+            } else {
+                newSetting.setSettingType("string"); // Default type
+            }
             if ("ai_api_key".equals(key)) {
                 newSetting.setDescription("AI API密钥");
+            } else if ("ai_base_url".equals(key)) {
+                newSetting.setDescription("AI API基础路径");
+            } else if ("ai_model_name".equals(key)) {
+                newSetting.setDescription("AI模型名称");
+            } else if ("ai_temperature".equals(key)) {
+                newSetting.setDescription("AI温度参数");
             } else {
                 newSetting.setDescription("Auto created setting");
             }

@@ -13,7 +13,10 @@ INSERT IGNORE INTO system_setting (setting_key, setting_value, setting_type, des
 ('order_prefix_purchase', 'PO', 'string', '采购单编号前缀'),
 ('order_prefix_sales', 'SO', 'string', '销售单编号前缀'),
 ('allow_negative_stock', 'false', 'boolean', '是否允许负库存'),
-('ai_api_key', '', 'string', 'AI API密钥');
+('ai_api_key', '', 'string', 'AI API密钥'),
+('ai_base_url', 'https://api.openai.com/v1', 'string', 'AI API基础路径'),
+('ai_model_name', 'gpt-5', 'string', 'AI模型名称'),
+('ai_temperature', '0.7', 'number', 'AI温度参数');
 
 -- 2. 添加默认管理员账号
 -- 密码为 admin123abc 的加密形式 (BCrypt)

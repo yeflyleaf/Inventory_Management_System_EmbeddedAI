@@ -159,10 +159,9 @@ npm run electron:dev
 
 进入后端工程目录并执行：
 
-```bash
+```powershell
 cd Backend
-./mvnw spring-boot:run
-# Windows 环境下使用: .\mvnw.cmd spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
 服务启动成功后将监听地址: **http://localhost:8080**

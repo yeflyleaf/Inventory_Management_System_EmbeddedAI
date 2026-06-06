@@ -145,16 +145,35 @@
         </div>
         <div class="header-content">
           <h3>AI 设置</h3>
-          <p>配置 AI 智能助手 API 密钥</p>
+          <p>配置 AI 智能助手接口参数与 API 密钥</p>
         </div>
       </div>
       
       <div class="settings-form">
         <div class="form-row">
           <div class="form-group">
+            <label>AI API 基础路径 (Base URL)</label>
+            <input v-model="settings.ai_base_url" type="text" placeholder="https://api.openai.com/v1">
+            <span class="form-help">自定义 OpenAI 或 DeepSeek 等兼容接口的 API 地址</span>
+          </div>
+          <div class="form-group">
+            <label>AI 模型名称 (Model Name)</label>
+            <input v-model="settings.ai_model_name" type="text" placeholder="gpt-5">
+            <span class="form-help">指定对话所使用的模型，如 gpt-4o 或 deepseek-chat</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>AI 温度参数 (Temperature)</label>
+            <div class="input-with-suffix">
+              <input v-model="settings.ai_temperature" type="number" min="0" max="2" step="0.1" placeholder="0.7">
+            </div>
+            <span class="form-help">数值越大回复越随机（范围 0 至 2），默认 0.7</span>
+          </div>
+          <div class="form-group">
             <label>AI API 密钥 (API Key)</label>
             <input v-model="settings.ai_api_key" type="password" placeholder="请输入 AI 接口 API 密钥 (例如: sk-...)">
-            <span class="form-help">保存后密钥将被加密存储。若已保存密钥，此处会显示为 ****** 且可重新输入以覆盖保存。</span>
+            <span class="form-help">保存后密钥将被加密存储。若已保存，此处显示 ******，重新输入可覆盖。</span>
           </div>
         </div>
       </div>
@@ -202,7 +221,10 @@ const settings = ref({
   order_prefix_purchase: 'PO',
   order_prefix_sales: 'SO',
   allow_negative_stock: 'false',
-  ai_api_key: ''
+  ai_api_key: '',
+  ai_base_url: 'https://api.openai.com/v1',
+  ai_model_name: 'gpt-5',
+  ai_temperature: '0.7'
 })
 
 const originalSettings = ref({})

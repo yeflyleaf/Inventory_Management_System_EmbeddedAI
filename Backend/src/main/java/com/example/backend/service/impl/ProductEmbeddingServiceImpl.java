@@ -55,7 +55,7 @@ public class ProductEmbeddingServiceImpl implements ProductEmbeddingService {
         Embedding embedding = embeddingModel.embed(segment).content();
         
         // 存储商品的向量及其数据（使用商品ID作为唯一标识）
-        embeddingStore.add(product.getId().toString(), embedding, segment);
+        embeddingStore.add(embedding, segment);
     }
 
     @Override

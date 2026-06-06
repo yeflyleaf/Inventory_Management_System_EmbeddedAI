@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.stream.Collectors;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Objects;
@@ -321,18 +322,20 @@ public class AdminController {
         }
 
         // 定义日志动作映射
-        Map<String, String> actionMap = Map.of(
-            "company_name", "修改公司名称",
-            "company_phone", "修改联系电话",
-            "company_email", "修改公司邮箱",
-            "company_address", "修改公司地址",
-            "low_stock_threshold", "修改低库存预警阈值",
-            "inventory_backlog_days", "修改库存积压天数",
-            "allow_negative_stock", "修改允许负库存",
-            "order_prefix_purchase", "修改采购单编号前缀",
-            "order_prefix_sales", "修改销售单编号前缀",
-            "ai_api_key", "修改AI API密钥"
-        );
+        Map<String, String> actionMap = new HashMap<>();
+        actionMap.put("company_name", "修改公司名称");
+        actionMap.put("company_phone", "修改联系电话");
+        actionMap.put("company_email", "修改公司邮箱");
+        actionMap.put("company_address", "修改公司地址");
+        actionMap.put("low_stock_threshold", "修改低库存预警阈值");
+        actionMap.put("inventory_backlog_days", "修改库存积压天数");
+        actionMap.put("allow_negative_stock", "修改允许负库存");
+        actionMap.put("order_prefix_purchase", "修改采购单编号前缀");
+        actionMap.put("order_prefix_sales", "修改销售单编号前缀");
+        actionMap.put("ai_api_key", "修改AI API密钥");
+        actionMap.put("ai_base_url", "修改AI API基础路径");
+        actionMap.put("ai_model_name", "修改AI模型名称");
+        actionMap.put("ai_temperature", "修改AI温度参数");
 
         Long userId = (Long) request.getAttribute("userId");
         String username = null;

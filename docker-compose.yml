@@ -10,11 +10,12 @@ services:
   redis:
     image: redis/redis-stack-server:latest
     container_name: inventory_redis
-    expose:
-      - "6379" # 仅内部访问
+    ports:
+      - "6379:6379" # 暴露给宿主机，以便本地运行的后端服务可以连接
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    environment:
+      - REDIS_ARGS=--appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     restart: unless-stopped
     networks:
       - inventory_network

@@ -37,29 +37,57 @@ public class DynamicChatLanguageModel implements ChatLanguageModel {
 
     private synchronized ChatLanguageModel getDelegate() {
         String apiKey = defaultApiKey;
+        String baseUrl = chatBaseUrl;
+        String modelName = chatModelName;
+        Double temperature = chatTemperature;
+
         try {
             SystemSettingService systemSettingService = systemSettingServiceProvider.getIfAvailable();
             if (systemSettingService != null) {
+                // 1. API Key
                 String encryptedKey = systemSettingService.getValue("ai_api_key");
                 if (encryptedKey != null && !encryptedKey.trim().isEmpty()) {
                     apiKey = EncryptionUtils.decrypt(encryptedKey);
                 }
+
+                // 2. Base URL
+                String dbBaseUrl = systemSettingService.getValue("ai_base_url");
+                if (dbBaseUrl != null && !dbBaseUrl.trim().isEmpty()) {
+                    baseUrl = dbBaseUrl.trim();
+                }
+
+                // 3. Model Name
+                String dbModelName = systemSettingService.getValue("ai_model_name");
+                if (dbModelName != null && !dbModelName.trim().isEmpty()) {
+                    modelName = dbModelName.trim();
+                }
+
+                // 4. Temperature
+                String dbTemp = systemSettingService.getValue("ai_temperature");
+                if (dbTemp != null && !dbTemp.trim().isEmpty()) {
+                    try {
+                        temperature = Double.parseDouble(dbTemp.trim());
+                    } catch (NumberFormatException e) {
+                        System.err.println("Failed to parse dynamic AI temperature: " + dbTemp);
+                    }
+                }
             }
         } catch (Exception e) {
-            System.err.println("Failed to load or decrypt dynamic AI API key, using default: " + e.getMessage());
+            System.err.println("Failed to load dynamic AI settings, using defaults: " + e.getMessage());
         }
 
-        // 缓存判断，如果密钥没变，则复用已创建的底层模型
-        if (cachedModel != null && apiKey.equals(cachedKey)) {
+        // Cache check: rebuild only if any of the dynamic properties have changed.
+        String currentCacheKey = String.format("%s|%s|%s|%s", apiKey, baseUrl, modelName, temperature);
+        if (cachedModel != null && currentCacheKey.equals(cachedKey)) {
             return cachedModel;
         }
 
-        cachedKey = apiKey;
+        cachedKey = currentCacheKey;
         cachedModel = OpenAiChatModel.builder()
-                .baseUrl(chatBaseUrl)
+                .baseUrl(baseUrl)
                 .apiKey(apiKey)
-                .modelName(chatModelName)
-                .temperature(chatTemperature)
+                .modelName(modelName)
+                .temperature(temperature)
                 .timeout(Duration.ofSeconds(60))
                 .build();
         return cachedModel;

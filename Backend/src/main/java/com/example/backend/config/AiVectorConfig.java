@@ -2,7 +2,7 @@ package com.example.backend.config;
 
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
+import dev.langchain4j.model.embedding.AllMiniLmL6V2EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.redis.RedisEmbeddingStore;
 import dev.langchain4j.model.chat.ChatLanguageModel;
@@ -67,17 +67,22 @@ public class AiVectorConfig {
 
     @Bean
     public EmbeddingStore<TextSegment> embeddingStore() {
-        RedisEmbeddingStore.Builder builder = RedisEmbeddingStore.builder()
-                .host(redisHost)
-                .port(redisPort)
-                .indexName(indexName)
-                .dimension(dimension);
-        
-        if (redisPassword != null && !redisPassword.trim().isEmpty()) {
-            builder.password(redisPassword);
+        try {
+            RedisEmbeddingStore.Builder builder = RedisEmbeddingStore.builder()
+                    .host(redisHost)
+                    .port(redisPort)
+                    .indexName(indexName)
+                    .dimension(dimension);
+            
+            if (redisPassword != null && !redisPassword.trim().isEmpty()) {
+                builder.password(redisPassword);
+            }
+            
+            return builder.build();
+        } catch (Exception e) {
+            System.err.println("WARNING: Failed to initialize RedisEmbeddingStore (e.g. Redis lacks RediSearch module or is offline). Falling back to InMemoryEmbeddingStore. Error: " + e.getMessage());
+            return new dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore<>();
         }
-        
-        return builder.build();
     }
 
     @Bean

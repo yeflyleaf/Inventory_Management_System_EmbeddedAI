@@ -17,7 +17,10 @@ export const useSettingsStore = defineStore('settings', {
       order_prefix_purchase: 'PO',
       order_prefix_sales: 'SO',
       allow_negative_stock: 'false',
-      ai_api_key: ''
+      ai_api_key: '',
+      ai_base_url: 'https://api.openai.com/v1',
+      ai_model_name: 'gpt-5',
+      ai_temperature: '0.7'
     },
     loaded: false
   }),
