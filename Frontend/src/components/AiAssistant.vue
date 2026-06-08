@@ -131,6 +131,33 @@
 
       <!-- 历史记录展示区 -->
       <div class="history-list" v-else>
+        <!-- 历史记录搜索栏 -->
+        <div class="history-search-wrapper" v-if="!isHistoryLoading && historySessions.length > 0">
+          <div class="search-input-container">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              type="text" 
+              v-model="historySearchQuery" 
+              placeholder="搜索历史对话内容或标题..." 
+              class="history-search-input"
+            />
+            <button 
+              v-if="historySearchQuery" 
+              class="clear-search-btn" 
+              @click="historySearchQuery = ''"
+              title="清空搜索"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
         <div v-if="isHistoryLoading" class="empty-history">
           <svg class="icon-sync spinning" style="width: 24px; height: 24px; color: #3498db;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
@@ -142,48 +169,60 @@
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
-          <p>暂无历史对话记录</p>
+          <p>{{ historySearchQuery ? '没有找到匹配的历史对话' : '暂无历史对话记录' }}</p>
         </div>
-        <div v-else v-for="module in dialogueModules" :key="module.id" class="history-module-card" :class="{ 'expanded': expandedModuleIds.has(module.id) }">
-          <div class="module-header" @click="loadDialogueToChat(module)" title="点击恢复此对话会话">
-            <div class="module-header-main">
-              <span class="module-icon">💬</span>
-              <span class="module-title" :title="module.title">{{ module.title }}</span>
-            </div>
-            <div class="module-meta">
-              <span class="module-time">{{ module.time }}</span>
-              <button
-                class="expand-toggle-btn"
-                @click.stop="toggleModule(module.id)"
-                title="预览此会话内容"
-              >
-                <svg class="icon-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="module-body" v-if="expandedModuleIds.has(module.id)">
-            <!-- 渲染该会话内的完整对话日志，支持多轮对话滚动和查看 -->
-            <div v-for="(msg, msgIdx) in module.messages" :key="msgIdx" :class="['message-item', msg.role]">
-              <div class="msg-avatar" v-if="msg.role === 'assistant'">AI</div>
-              <div class="msg-avatar user" v-else>我</div>
-
-              <div class="msg-bubble">
-                <div class="msg-text" v-html="msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content"></div>
-                <div class="msg-time">{{ msg.time }}</div>
+        <template v-else>
+          <div v-for="module in visibleDialogueModules" :key="module.id" class="history-module-card" :class="{ 'expanded': expandedModuleIds.has(module.id) }">
+            <div class="module-header" @click="loadDialogueToChat(module)" title="点击恢复此对话会话">
+              <div class="module-header-main">
+                <span class="module-icon">💬</span>
+                <span class="module-title" :title="module.title">{{ module.title }}</span>
+              </div>
+              <div class="module-meta">
+                <span class="module-time">{{ module.time }}</span>
+                <button
+                  class="expand-toggle-btn"
+                  @click.stop="toggleModule(module.id)"
+                  title="预览此会话内容"
+                >
+                  <svg class="icon-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
               </div>
             </div>
-            <div class="module-actions" style="display: flex; justify-content: flex-end; margin-top: 8px;">
-              <button class="action-btn continue-chat-btn" @click="loadDialogueToChat(module)" style="font-size: 0.75rem; color: #3b82f6; border: 1px solid #bfdbfe; background-color: #eff6ff; padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.2s;">
-                <svg style="width: 12px; height: 12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-                恢复并继续此会话
-              </button>
+            <div class="module-body" v-if="expandedModuleIds.has(module.id)">
+              <!-- 渲染该会话内的完整对话日志，支持多轮对话滚动和查看 -->
+              <div v-for="(msg, msgIdx) in module.messages" :key="msgIdx" :class="['message-item', msg.role]">
+                <div class="msg-avatar" v-if="msg.role === 'assistant'">AI</div>
+                <div class="msg-avatar user" v-else>我</div>
+
+                <div class="msg-bubble">
+                  <div class="msg-text" v-html="msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content"></div>
+                  <div class="msg-time">{{ msg.time }}</div>
+                </div>
+              </div>
+              <div class="module-actions" style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                <button class="action-btn continue-chat-btn" @click="loadDialogueToChat(module)" style="font-size: 0.75rem; color: #3b82f6; border: 1px solid #bfdbfe; background-color: #eff6ff; padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.2s;">
+                  <svg style="width: 12px; height: 12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                  恢复并继续此会话
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+
+          <!-- 折叠与展开更多会话 -->
+          <div v-if="dialogueModules.length > 10 && !showAllHistory" class="show-more-history-wrapper">
+            <button class="show-more-history-btn" @click="showAllHistory = true">
+              <span>查看更多历史对话 (还有 {{ dialogueModules.length - 10 }} 个)</span>
+              <svg class="icon-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+        </template>
       </div>
 
       <!-- 底部输入栏 -->
@@ -212,6 +251,13 @@
 
 <script setup>
 import { ref, watch, nextTick, computed } from 'vue'
+
+const props = defineProps({
+  isAdminChat: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const isOpen = ref(false)
 const isLoading = ref(false)
@@ -319,11 +365,38 @@ const toggleModule = (id) => {
   }
 }
 
+const historySearchQuery = ref('')
+const showAllHistory = ref(false)
+
 const dialogueModules = computed(() => {
-  return historySessions.value.map(s => ({
-    ...s,
-    id: s.sessionId
-  }))
+  // 1. 按照时间降序排序（lexicographical compare on YYYY-MM-DD HH:mm:ss）
+  const sorted = [...historySessions.value].sort((a, b) => {
+    const timeA = a.time || ''
+    const timeB = b.time || ''
+    return timeB.localeCompare(timeA)
+  })
+
+  // 2. 根据查询词过滤会话标题与会话内的发言内容
+  const query = historySearchQuery.value.trim().toLowerCase()
+  if (!query) {
+    return sorted.map(s => ({ ...s, id: s.sessionId }))
+  }
+
+  return sorted
+    .filter(s => {
+      const matchTitle = (s.title || '').toLowerCase().includes(query)
+      const matchMessages = (s.messages || []).some(m => (m.content || '').toLowerCase().includes(query))
+      return matchTitle || matchMessages
+    })
+    .map(s => ({ ...s, id: s.sessionId }))
+})
+
+const visibleDialogueModules = computed(() => {
+  const allModules = dialogueModules.value
+  if (allModules.length <= 10 || showAllHistory.value) {
+    return allModules
+  }
+  return allModules.slice(0, 10)
 })
 
 const loadDialogueToChat = async (module) => {
@@ -334,13 +407,14 @@ const loadDialogueToChat = async (module) => {
   }))
 
   activeTab.value = 'chat'
-  scrollToBottom()
+  scrollToBottom(true)
 
   // 同步后端会话内存上下文，以保证在此会话上继续对话时拥有完整的上下文记忆
   const token = localStorage.getItem('token')
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+  const adminParam = props.isAdminChat ? '?isAdminChat=true' : ''
   try {
-    await fetch(`${baseUrl}/ai/restore`, {
+    await fetch(`${baseUrl}/ai/restore${adminParam}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -363,9 +437,10 @@ const startNewChat = async () => {
 
   const token = localStorage.getItem('token')
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+  const adminParam = props.isAdminChat ? '?isAdminChat=true' : ''
 
   try {
-    const res = await fetch(`${baseUrl}/ai/clear`, {
+    const res = await fetch(`${baseUrl}/ai/clear${adminParam}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -379,7 +454,7 @@ const startNewChat = async () => {
         content: '当前会话已重置。我已经忘记了之前的对话上下文，我们可以开始新的话题了！',
         time: timeStr
       })
-      scrollToBottom()
+      scrollToBottom(true)
     }
   } catch (error) {
     console.error('清空会话失败:', error)
@@ -395,8 +470,9 @@ const loadHistoryList = async () => {
 
   isHistoryLoading.value = true
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+  const adminParam = props.isAdminChat ? '?isAdminChat=true' : ''
   try {
-    const res = await fetch(`${baseUrl}/ai/history`, {
+    const res = await fetch(`${baseUrl}/ai/history${adminParam}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -421,8 +497,9 @@ const loadChatHistory = async () => {
   if (!token) return
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+  const adminParam = props.isAdminChat ? '?isAdminChat=true' : ''
   try {
-    const res = await fetch(`${baseUrl}/ai/history/active`, {
+    const res = await fetch(`${baseUrl}/ai/history/active${adminParam}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -438,7 +515,7 @@ const loadChatHistory = async () => {
         }))
         // 为避免智能对话窗口过于臃肿，默认只加载最新的 10 条消息
         messages.value = rawMsgs.slice(-10)
-        scrollToBottom()
+        scrollToBottom(true)
       }
     }
   } catch (error) {
@@ -452,11 +529,13 @@ watch(isOpen, (newVal) => {
     if (activeTab.value === 'chat') {
       loadChatHistory()
     } else {
+      historySearchQuery.value = ''
+      showAllHistory.value = false
       loadHistoryList()
     }
     nextTick(() => {
       inputBox.value?.focus()
-      scrollToBottom()
+      scrollToBottom(true)
     })
   }
 })
@@ -464,6 +543,8 @@ watch(isOpen, (newVal) => {
 // 监听 Tab 切换
 watch(activeTab, (newVal) => {
   if (newVal === 'history') {
+    historySearchQuery.value = ''
+    showAllHistory.value = false
     loadHistoryList()
   } else if (newVal === 'chat') {
     loadChatHistory()
@@ -476,10 +557,17 @@ const togglePanel = () => {
 }
 
 // 自动滚动到底部
-const scrollToBottom = () => {
+const scrollToBottom = (force = false) => {
   nextTick(() => {
-    if (messageContainer.value) {
-      messageContainer.value.scrollTop = messageContainer.value.scrollHeight
+    const container = messageContainer.value
+    if (!container) return
+    
+    // 如果用户距离底部在 150px 以内，或者强制滚动，则执行滚动
+    const threshold = 150
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
+    
+    if (force || isAtBottom) {
+      container.scrollTop = container.scrollHeight
     }
   })
 }
@@ -514,7 +602,7 @@ const triggerReindex = async () => {
     content: '正在同步商品向量数据，请稍候...',
     time: timeStr
   })
-  scrollToBottom()
+  scrollToBottom(true)
 
   try {
     const res = await fetch(`${baseUrl}/ai/reindex`, {
@@ -542,7 +630,7 @@ const triggerReindex = async () => {
     })
   } finally {
     isReindexing.value = false
-    scrollToBottom()
+    scrollToBottom(true)
   }
 }
 
@@ -563,10 +651,11 @@ const sendMessage = async () => {
 
   inputMsg.value = ''
   isLoading.value = true
-  scrollToBottom()
+  scrollToBottom(true)
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
-  const url = `${baseUrl}/ai/chat?message=${encodeURIComponent(query)}`
+  const adminParam = props.isAdminChat ? '&isAdminChat=true' : ''
+  const url = `${baseUrl}/ai/chat?message=${encodeURIComponent(query)}${adminParam}`
 
   let assistantMsgIndex = -1
 
@@ -652,7 +741,7 @@ const sendMessage = async () => {
 
             // 拼接打字机 Token，保留空格与换行
             messages.value[assistantMsgIndex].content += token
-            scrollToBottom()
+            scrollToBottom(false)
           }
         }
       }
@@ -681,7 +770,7 @@ const sendMessage = async () => {
     } else {
       messages.value[assistantMsgIndex].content += `\n\n[生成中断: ${error.message}]`
     }
-    scrollToBottom()
+    scrollToBottom(true)
   }
 }
 
@@ -857,6 +946,9 @@ const renderMarkdown = (text) => {
     }
   }
 
+  if (inCodeBlock) {
+    html.push(`<pre class="code-block"><code>${codeContent.join('\n')}</code></pre>`)
+  }
   closeList()
   closeTable()
   closeBlockquote()
@@ -1106,6 +1198,7 @@ const renderMarkdown = (text) => {
   flex-direction: column;
   gap: 16px;
   background: #f8fafc;
+  overflow-anchor: auto; /* 开启原生滚动锚定，防止打字机渲染导致的剧烈抖动与页面上下跳跃 */
 }
 
 /* 欢迎引导卡片 */
@@ -1499,6 +1592,113 @@ const renderMarkdown = (text) => {
   flex-direction: column;
   gap: 20px;
   background: #f8fafc;
+}
+
+/* 历史记录搜索栏 */
+.history-search-wrapper {
+  padding: 0 4px 4px 4px;
+}
+
+.search-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.history-search-input {
+  width: 100%;
+  padding: 8px 36px 8px 36px;
+  font-size: 0.85rem;
+  color: #1e293b;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.history-search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.history-search-input::placeholder {
+  color: #94a3b8;
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.clear-search-btn:hover {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.clear-search-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* 查看更多会话按钮 */
+.show-more-history-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 4px 0;
+}
+
+.show-more-history-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.show-more-history-btn:hover {
+  color: #3b82f6;
+  border-color: #bfdbfe;
+  background-color: #eff6ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);
+}
+
+.show-more-history-btn:active {
+  transform: translateY(0);
+}
+
+.show-more-history-btn .icon-down {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease;
 }
 
 .empty-history {

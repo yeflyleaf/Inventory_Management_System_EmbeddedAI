@@ -64,9 +64,10 @@ redis_client_binary = redis.Redis(
 
 JAVA_BACKEND_URL = os.getenv("JAVA_BACKEND_URL", "http://localhost:8080")
 
-def get_user_id_from_auth_header(authorization: Optional[str] = None) -> Optional[int]:
+def get_user_info_from_auth_header(authorization: Optional[str] = None) -> Optional[dict]:
     """
     通过 Authorization header 里的 Bearer Token 校验用户，从 Redis 缓存加载用户信息。
+    返回包含 userId, role, username 等字段的字典。
     对标原 Java 后端拦截器。
     """
     if not authorization or not authorization.startswith("Bearer "):
@@ -84,13 +85,19 @@ def get_user_id_from_auth_header(authorization: Optional[str] = None) -> Optiona
         data = json.loads(val)
         # 对标 Jackson NON_FINAL 的 ["java.util.HashMap", { ... }] 序列化格式
         if isinstance(data, list) and len(data) == 2:
-            user_info = data[1]
-            return user_info.get("userId")
+            return data[1]
         elif isinstance(data, dict):
-            return data.get("userId")
+            return data
     except Exception as e:
         print(f"WARNING: Error parsing token user info JSON: {e}")
     return None
+
+def get_user_id_from_auth_header(authorization: Optional[str] = None) -> Optional[int]:
+    """
+    通过 Authorization header 获取用户 ID (保持向后兼容)
+    """
+    info = get_user_info_from_auth_header(authorization)
+    return info.get("userId") if info else None
 
 def get_active_session_id(redis_client: redis.Redis, user_id: str) -> Optional[str]:
     val = redis_client.get(f"chat:active_session:{user_id}")
@@ -178,27 +185,36 @@ def migrate_old_flat_history(redis_client: redis.Redis, user_id: str):
     redis_client.delete(old_key)
 
 @router.get("/history")
-async def get_history(request: Request):
+async def get_history(request: Request, isAdminChat: bool = Query(False)):
     """
     获取对话历史，对应 Java 后端 GET /api/ai/history (升级为多会话列表返回)
     """
     auth_header = request.headers.get("Authorization")
-    user_id = get_user_id_from_auth_header(auth_header)
-    if not user_id:
+    user_info = get_user_info_from_auth_header(auth_header)
+    if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
-    sessions_key = f"chat:sessions:{user_id}"
+    user_id = user_info.get("userId")
+    user_role = user_info.get("role", "USER")
+    
+    is_admin_chat_effective = isAdminChat
+    if is_admin_chat_effective and user_role != "ADMIN":
+        is_admin_chat_effective = False
+        
+    chat_user_key = f"{user_id}:admin" if is_admin_chat_effective else str(user_id)
+        
+    sessions_key = f"chat:sessions:{chat_user_key}"
     session_ids = redis_client.lrange(sessions_key, 0, -1)
     
     # 平滑迁移旧数据
-    if not session_ids:
-        migrate_old_flat_history(redis_client, str(user_id))
+    if not is_admin_chat_effective and not session_ids:
+        migrate_old_flat_history(redis_client, chat_user_key)
         session_ids = redis_client.lrange(sessions_key, 0, -1)
         
     sessions_list = []
     for raw_session_id in session_ids:
         session_id = raw_session_id.decode("utf-8") if isinstance(raw_session_id, bytes) else str(raw_session_id)
-        history_key = f"chat:history:{user_id}:{session_id}"
+        history_key = f"chat:history:{chat_user_key}:{session_id}"
         vals = redis_client.lrange(history_key, 0, -1)
         if not vals:
             continue
@@ -246,20 +262,29 @@ async def get_history(request: Request):
     return {"success": True, "message": "Success", "data": sessions_list}
 
 @router.get("/history/active")
-async def get_active_history(request: Request):
+async def get_active_history(request: Request, isAdminChat: bool = Query(False)):
     """
     获取当前活跃会话的消息列表（平铺格式，由前端智能对话初始渲染调用）
     """
     auth_header = request.headers.get("Authorization")
-    user_id = get_user_id_from_auth_header(auth_header)
-    if not user_id:
+    user_info = get_user_info_from_auth_header(auth_header)
+    if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
-    active_session_id = get_active_session_id(redis_client, str(user_id))
+    user_id = user_info.get("userId")
+    user_role = user_info.get("role", "USER")
+    
+    is_admin_chat_effective = isAdminChat
+    if is_admin_chat_effective and user_role != "ADMIN":
+        is_admin_chat_effective = False
+        
+    chat_user_key = f"{user_id}:admin" if is_admin_chat_effective else str(user_id)
+        
+    active_session_id = get_active_session_id(redis_client, chat_user_key)
     if not active_session_id:
         return {"success": True, "message": "Success", "data": []}
         
-    history_key = f"chat:history:{user_id}:{active_session_id}"
+    history_key = f"chat:history:{chat_user_key}:{active_session_id}"
     vals = redis_client.lrange(history_key, 0, -1)
     
     dto_list = []
@@ -286,31 +311,49 @@ async def get_active_history(request: Request):
     return {"success": True, "message": "Success", "data": dto_list}
 
 @router.post("/clear")
-async def clear_chat_memory(request: Request):
+async def clear_chat_memory(request: Request, isAdminChat: bool = Query(False)):
     """
     清空当前对话 session 内存，对应 POST /api/ai/clear
     """
     auth_header = request.headers.get("Authorization")
-    user_id = get_user_id_from_auth_header(auth_header)
-    if not user_id:
+    user_info = get_user_info_from_auth_header(auth_header)
+    if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
+    user_id = user_info.get("userId")
+    user_role = user_info.get("role", "USER")
+    
+    is_admin_chat_effective = isAdminChat
+    if is_admin_chat_effective and user_role != "ADMIN":
+        is_admin_chat_effective = False
+        
+    chat_user_key = f"{user_id}:admin" if is_admin_chat_effective else str(user_id)
+        
     try:
-        redis_client.delete(f"chat:memory:{user_id}")
-        redis_client.delete(f"chat:active_session:{user_id}")
+        redis_client.delete(f"chat:memory:{chat_user_key}")
+        redis_client.delete(f"chat:active_session:{chat_user_key}")
         return {"success": True, "message": "当前会话已重置，开启新对话"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"重置会话失败: {str(e)}")
 
 @router.post("/restore")
-async def restore_chat_memory(request: Request, body: Any = Body(...)):
+async def restore_chat_memory(request: Request, body: Any = Body(...), isAdminChat: bool = Query(False)):
     """
     恢复/重置当前会话的内存上下文，从历史记录加载会话时使用
     """
     auth_header = request.headers.get("Authorization")
-    user_id = get_user_id_from_auth_header(auth_header)
-    if not user_id:
+    user_info = get_user_info_from_auth_header(auth_header)
+    if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    user_id = user_info.get("userId")
+    user_role = user_info.get("role", "USER")
+    
+    is_admin_chat_effective = isAdminChat
+    if is_admin_chat_effective and user_role != "ADMIN":
+        is_admin_chat_effective = False
+        
+    chat_user_key = f"{user_id}:admin" if is_admin_chat_effective else str(user_id)
         
     try:
         session_id = None
@@ -320,12 +363,12 @@ async def restore_chat_memory(request: Request, body: Any = Body(...)):
             messages = body.get("messages", [])
         elif isinstance(body, list):
             messages = body
-            session_id = get_active_session_id(redis_client, str(user_id))
+            session_id = get_active_session_id(redis_client, chat_user_key)
             if not session_id:
-                session_id = create_active_session(redis_client, str(user_id))
+                session_id = create_active_session(redis_client, chat_user_key)
                 
         if session_id:
-            redis_client.setex(f"chat:active_session:{user_id}", 90 * 86400, session_id)
+            redis_client.setex(f"chat:active_session:{chat_user_key}", 90 * 86400, session_id)
             
         from langchain_core.messages import BaseMessage
         history_msgs: list[BaseMessage] = []
@@ -337,7 +380,7 @@ async def restore_chat_memory(request: Request, body: Any = Body(...)):
             elif role == "assistant":
                 history_msgs.append(AIMessage(content=content))
                 
-        save_chat_history(redis_client, str(user_id), history_msgs)
+        save_chat_history(redis_client, chat_user_key, history_msgs)
         return {"success": True, "message": "已成功恢复会话上下文"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"恢复会话上下文失败: {str(e)}")
@@ -400,7 +443,7 @@ async def run_agent_background(
 
         await queue.put({"type": "error", "content": str(e)})
 
-async def sse_chat_generator(message: str, user_id: str, redis_client_text, redis_client_bin):
+async def sse_chat_generator(message: str, user_id: str, is_admin_chat: bool, redis_client_text, redis_client_bin):
     """
     SSE 生成器，通过读取异步队列实时返回 LLM Token 给前端，在后台任务中安全更新 Redis 历史记录。
     """
@@ -439,13 +482,16 @@ async def sse_chat_generator(message: str, user_id: str, redis_client_text, redi
         get_purchase_order_detail,
         get_sales_orders,
         get_sales_order_detail,
-        get_all_warehouses,
-        get_recent_operation_logs,
-        get_all_users
+        get_all_warehouses
     ]
+    if is_admin_chat:
+        tools_list.extend([
+            get_recent_operation_logs,
+            get_all_users
+        ])
     
     # 6. 获取智能体执行器
-    agent_executor = get_agent_executor(api_key, base_url, model_name, tools_list)
+    agent_executor = get_agent_executor(api_key, base_url, model_name, tools_list, is_admin=is_admin_chat)
     
     # 7. 获取或创建活跃的 Session ID
     session_id = get_active_session_id(redis_client_text, user_id)
@@ -509,20 +555,29 @@ async def sse_chat_generator(message: str, user_id: str, redis_client_text, redi
         yield f"data: {str(e)}\n\n"
 
 @router.get("/chat")
-async def chat(request: Request, message: str = Query(...)):
+async def chat(request: Request, message: str = Query(...), isAdminChat: bool = Query(False)):
     """
     AI 仓储问答接口 (Server-Sent Events)
     """
     auth_header = request.headers.get("Authorization")
-    user_id = get_user_id_from_auth_header(auth_header)
-    if not user_id:
+    user_info = get_user_info_from_auth_header(auth_header)
+    if not user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    user_id = user_info.get("userId")
+    user_role = user_info.get("role", "USER")
+    
+    is_admin_chat_effective = isAdminChat
+    if is_admin_chat_effective and user_role != "ADMIN":
+        is_admin_chat_effective = False
+        
+    chat_user_key = f"{user_id}:admin" if is_admin_chat_effective else str(user_id)
         
     # 速率限制检查 (RPM, TPM, RPD)
     await check_rate_limit(redis_client, JAVA_BACKEND_URL, message)
     
     return StreamingResponse(
-        sse_chat_generator(message, str(user_id), redis_client, redis_client_binary),
+        sse_chat_generator(message, chat_user_key, is_admin_chat_effective, redis_client, redis_client_binary),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

@@ -122,10 +122,12 @@
         <router-view></router-view>
       </div>
     </main>
+    <AiAssistant :isAdminChat="true" />
   </div>
 </template>
 
 <script setup>
+import AiAssistant from '@/components/AiAssistant.vue'
 import { useUserStore } from '@/stores/user'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
