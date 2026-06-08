@@ -142,9 +142,20 @@ public class OperationLogAspect {
                 // 过滤掉不能序列化的参数，如HttpServletRequest等
                 String params = objectMapper.writeValueAsString(logArgs);
                 
-                // 正则兜底替换
-                if (params != null && params.contains("ai_api_key")) {
-                    params = params.replaceAll("\"ai_api_key\"\\s*:\\s*\"[^\"]+\"", "\"ai_api_key\":\"******\"");
+                // 正则兜底替换 (脱敏密码及敏感 API 密钥)
+                if (params != null) {
+                    if (params.contains("password")) {
+                        params = params.replaceAll("\"password\"\\s*:\\s*\"[^\"]+\"", "\"password\":\"******\"");
+                    }
+                    if (params.contains("oldPassword")) {
+                        params = params.replaceAll("\"oldPassword\"\\s*:\\s*\"[^\"]+\"", "\"oldPassword\":\"******\"");
+                    }
+                    if (params.contains("newPassword")) {
+                        params = params.replaceAll("\"newPassword\"\\s*:\\s*\"[^\"]+\"", "\"newPassword\":\"******\"");
+                    }
+                    if (params.contains("ai_api_key")) {
+                        params = params.replaceAll("\"ai_api_key\"\\s*:\\s*\"[^\"]+\"", "\"ai_api_key\":\"******\"");
+                    }
                 }
                 
                 // 截断过长的参数

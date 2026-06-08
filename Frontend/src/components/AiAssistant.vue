@@ -5,11 +5,11 @@
 <template>
   <div class="ai-assistant-wrapper" :style="wrapperStyle">
     <!-- 悬浮球按钮 -->
-    <button 
-      class="ai-floating-btn" 
-      :class="{ 'panel-open': isOpen }" 
-      @mousedown="startDrag" 
-      @touchstart="startDrag" 
+    <button
+      class="ai-floating-btn"
+      :class="{ 'panel-open': isOpen }"
+      @mousedown="startDrag"
+      @touchstart="startDrag"
       @click="handleBtnClick"
       title="AI 仓储智能助手"
     >
@@ -27,28 +27,28 @@
         <div class="header-info">
           <div class="header-avatar-badge">AI</div>
           <div class="title-meta">
-            <h4>AI 仓储助手</h4>
-            <span class="status-online"><span class="dot"></span>在线分析中</span>
+            <h4>AI 助手</h4>
+            <span class="status-online"><span class="dot"></span>在线</span>
           </div>
         </div>
         <div class="header-actions">
-          <button 
+          <button
             v-if="activeTab === 'chat'"
-            class="action-btn new-chat-btn" 
-            @click="startNewChat" 
-            :disabled="isClearing" 
+            class="action-btn new-chat-btn"
+            @click="startNewChat"
+            :disabled="isClearing"
             title="清空上下文，开启新对话"
           >
             <svg class="icon-new" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 5v14M5 12h14"/>
             </svg>
-            开启新对话
+            <span class="action-btn-text">开启新对话</span>
           </button>
           <button class="action-btn reindex-btn" @click="triggerReindex" :disabled="isReindexing" title="全量商品向量同步">
             <svg class="icon-sync" :class="{ 'spinning': isReindexing }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
             </svg>
-            {{ isReindexing ? '正在同步...' : '同步商品数据' }}
+            <span class="action-btn-text">{{ isReindexing ? '正在同步...' : '同步商品数据' }}</span>
           </button>
           <button class="close-btn" @click="isOpen = false" title="关闭面板">
             <svg class="close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -61,16 +61,16 @@
 
       <!-- 选项卡 -->
       <div class="chat-tabs">
-        <button 
-          class="tab-item" 
-          :class="{ active: activeTab === 'chat' }" 
+        <button
+          class="tab-item"
+          :class="{ active: activeTab === 'chat' }"
           @click="activeTab = 'chat'"
         >
           智能对话
         </button>
-        <button 
-          class="tab-item" 
-          :class="{ active: activeTab === 'history' }" 
+        <button
+          class="tab-item"
+          :class="{ active: activeTab === 'history' }"
           @click="activeTab = 'history'"
         >
           历史记录
@@ -88,7 +88,7 @@
           </div>
           <h3>欢迎使用 AI 仓储助手</h3>
           <p>我可以为您提供实时库存查询、低库存商品预警、品类占比统计及补货建议。请选择下方快捷指令或在输入框中直接提问：</p>
-          
+
           <div class="quick-chips">
             <button class="chip" @click="sendQuickPrompt('哪些商品处于低库存状态？')">
               低库存预警
@@ -109,7 +109,7 @@
         <div v-else v-for="(msg, index) in messages" :key="index" :class="['message-item', msg.role]">
           <div class="msg-avatar" v-if="msg.role === 'assistant'">AI</div>
           <div class="msg-avatar user" v-else>我</div>
-          
+
           <div class="msg-bubble">
             <div class="msg-text" v-html="renderMarkdown(msg.content)"></div>
             <div class="msg-time">{{ msg.time }}</div>
@@ -137,23 +137,50 @@
           </svg>
           <p>正在加载历史记录...</p>
         </div>
-        <div v-else-if="historyMessages.length === 0" class="empty-history">
+        <div v-else-if="dialogueModules.length === 0" class="empty-history">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="empty-history-icon">
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
           <p>暂无历史对话记录</p>
         </div>
-        <div v-else v-for="(msgs, date) in groupedHistory" :key="date" class="history-group">
-          <div class="history-date-divider">
-            <span>{{ date }}</span>
+        <div v-else v-for="module in dialogueModules" :key="module.id" class="history-module-card" :class="{ 'expanded': expandedModuleIds.has(module.id) }">
+          <div class="module-header" @click="loadDialogueToChat(module)" title="点击恢复此对话会话">
+            <div class="module-header-main">
+              <span class="module-icon">💬</span>
+              <span class="module-title" :title="module.title">{{ module.title }}</span>
+            </div>
+            <div class="module-meta">
+              <span class="module-time">{{ module.time }}</span>
+              <button
+                class="expand-toggle-btn"
+                @click.stop="toggleModule(module.id)"
+                title="预览此会话内容"
+              >
+                <svg class="icon-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+            </div>
           </div>
-          <div v-for="(msg, idx) in msgs" :key="idx" :class="['message-item', msg.role]">
-            <div class="msg-avatar" v-if="msg.role === 'assistant'">AI</div>
-            <div class="msg-avatar user" v-else>我</div>
-            <div class="msg-bubble">
-              <div class="msg-text" v-html="renderMarkdown(msg.content)"></div>
-              <div class="msg-time">{{ msg.time ? msg.time.split(' ')[1] || msg.time : '' }}</div>
+          <div class="module-body" v-if="expandedModuleIds.has(module.id)">
+            <!-- 渲染该会话内的完整对话日志，支持多轮对话滚动和查看 -->
+            <div v-for="(msg, msgIdx) in module.messages" :key="msgIdx" :class="['message-item', msg.role]">
+              <div class="msg-avatar" v-if="msg.role === 'assistant'">AI</div>
+              <div class="msg-avatar user" v-else>我</div>
+
+              <div class="msg-bubble">
+                <div class="msg-text" v-html="msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content"></div>
+                <div class="msg-time">{{ msg.time }}</div>
+              </div>
+            </div>
+            <div class="module-actions" style="display: flex; justify-content: flex-end; margin-top: 8px;">
+              <button class="action-btn continue-chat-btn" @click="loadDialogueToChat(module)" style="font-size: 0.75rem; color: #3b82f6; border: 1px solid #bfdbfe; background-color: #eff6ff; padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.2s;">
+                <svg style="width: 12px; height: 12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+                恢复并继续此会话
+              </button>
             </div>
           </div>
         </div>
@@ -161,10 +188,10 @@
 
       <!-- 底部输入栏 -->
       <div class="panel-input-area" v-if="activeTab === 'chat'">
-        <textarea 
-          ref="inputBox" 
-          v-model="inputMsg" 
-          placeholder="问问 AI，例如：帮我分析哪些商品需要采购..." 
+        <textarea
+          ref="inputBox"
+          v-model="inputMsg"
+          placeholder="问问 AI，例如：帮我分析哪些商品需要采购..."
           @keydown.enter.prevent="handleEnter"
           rows="2"
         ></textarea>
@@ -279,29 +306,64 @@ const handleBtnClick = () => {
 // --- 选项卡与历史记录状态 ---
 const activeTab = ref('chat') // 'chat' 智能对话 | 'history' 历史记录
 const isHistoryLoading = ref(false)
-const historyMessages = ref([])
+const historySessions = ref([])
 const isClearing = ref(false)
 
-const groupedHistory = computed(() => {
-  const groups = {}
-  for (const msg of historyMessages.value) {
-    const dateStr = msg.time ? msg.time.split(' ')[0] : '未知日期'
-    if (!groups[dateStr]) {
-      groups[dateStr] = []
-    }
-    groups[dateStr].push(msg)
+const expandedModuleIds = ref(new Set())
+
+const toggleModule = (id) => {
+  if (expandedModuleIds.value.has(id)) {
+    expandedModuleIds.value.delete(id)
+  } else {
+    expandedModuleIds.value.add(id)
   }
-  return groups
+}
+
+const dialogueModules = computed(() => {
+  return historySessions.value.map(s => ({
+    ...s,
+    id: s.sessionId
+  }))
 })
+
+const loadDialogueToChat = async (module) => {
+  messages.value = module.messages.map(msg => ({
+    role: msg.role,
+    content: msg.content,
+    time: msg.time
+  }))
+
+  activeTab.value = 'chat'
+  scrollToBottom()
+
+  // 同步后端会话内存上下文，以保证在此会话上继续对话时拥有完整的上下文记忆
+  const token = localStorage.getItem('token')
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+  try {
+    await fetch(`${baseUrl}/ai/restore`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sessionId: module.sessionId,
+        messages: messages.value
+      })
+    })
+  } catch (error) {
+    console.error('同步会话内存失败:', error)
+  }
+}
 
 // 开启新对话（清空会话上下文）
 const startNewChat = async () => {
   if (isClearing.value) return
   isClearing.value = true
-  
+
   const token = localStorage.getItem('token')
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
-  
+
   try {
     const res = await fetch(`${baseUrl}/ai/clear`, {
       method: 'POST',
@@ -330,7 +392,7 @@ const startNewChat = async () => {
 const loadHistoryList = async () => {
   const token = localStorage.getItem('token')
   if (!token) return
-  
+
   isHistoryLoading.value = true
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
   try {
@@ -343,11 +405,7 @@ const loadHistoryList = async () => {
     if (res.ok) {
       const data = await res.json()
       if (data.success && data.data) {
-        historyMessages.value = data.data.map(item => ({
-          role: item.role,
-          content: item.content,
-          time: item.time || ''
-        }))
+        historySessions.value = data.data
       }
     }
   } catch (error) {
@@ -361,10 +419,10 @@ const loadHistoryList = async () => {
 const loadChatHistory = async () => {
   const token = localStorage.getItem('token')
   if (!token) return
-  
+
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
   try {
-    const res = await fetch(`${baseUrl}/ai/history`, {
+    const res = await fetch(`${baseUrl}/ai/history/active`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -445,10 +503,10 @@ const sendQuickPrompt = (promptText) => {
 const triggerReindex = async () => {
   if (isReindexing.value) return
   isReindexing.value = true
-  
+
   const token = localStorage.getItem('token')
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
-  
+
   // 添加一条系统通知
   const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   messages.value.push({
@@ -466,7 +524,7 @@ const triggerReindex = async () => {
         'Content-Type': 'application/json'
       }
     })
-    
+
     if (res.ok) {
       messages.value.push({
         role: 'assistant',
@@ -546,7 +604,7 @@ const sendMessage = async () => {
       if (done) break
 
       buffer += decoder.decode(value, { stream: true })
-      
+
       // SSE 协议解析：按行分割
       const lines = buffer.split('\n')
       // 最后一行可能不完整，留到下一批处理
@@ -580,9 +638,20 @@ const sendMessage = async () => {
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
               }) - 1
             }
-            
+
+            // 尝试解析 JSON 格式的 Token（用于完整保留换行等转义字符），否则回退到原始字符串
+            let token = dataContent
+            try {
+              const parsed = JSON.parse(dataContent)
+              if (parsed && typeof parsed.content === 'string') {
+                token = parsed.content
+              }
+            } catch (e) {
+              // 忽略解析错误，使用原始 dataContent
+            }
+
             // 拼接打字机 Token，保留空格与换行
-            messages.value[assistantMsgIndex].content += dataContent
+            messages.value[assistantMsgIndex].content += token
             scrollToBottom()
           }
         }
@@ -619,33 +688,201 @@ const sendMessage = async () => {
 // 轻量级、高能的 Markdown 解析器，防跨站脚本且无第三方依赖
 const renderMarkdown = (text) => {
   if (!text) return ''
-  
-  let html = text
+
+  // 1. 转义 HTML 特殊字符防止 XSS 注入
+  let escapedText = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
-  // 1. 解析多行代码块: ```java ... ```
-  html = html.replace(/```(?:[a-zA-Z0-9]+)?\n([\s\S]*?)```/g, (match, code) => {
-    return `<pre class="code-block"><code>${code.trim()}</code></pre>`
-  })
+  const lines = escapedText.split('\n')
+  const html = []
 
-  // 2. 解析行内单标记代码: `code`
-  html = html.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>')
+  let inCodeBlock = false
+  let codeContent = []
+  let inList = false
+  let inTable = false
+  let tableRows = []
+  let inBlockquote = false
+  let blockquoteContent = []
 
-  // 3. 解析加粗: **text**
-  html = html.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>')
+  const closeList = () => {
+    if (inList) {
+      html.push('</ul>')
+      inList = false
+    }
+  }
 
-  // 4. 解析列表项: - item 样式
-  html = html.replace(/^\s*-\s+(.+)$/gm, '<li>$1</li>')
-  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul class="md-list">$1</ul>')
-  // 合并相邻 of ul 元素
-  html = html.replace(/<\/ul>\s*<ul class="md-list">/g, '')
+  const closeTable = () => {
+    if (inTable) {
+      if (tableRows.length > 0) {
+        let tableHtml = '<table class="md-table"><thead>'
+        let hasSeparator = false
+        if (tableRows.length > 1) {
+          const row1 = tableRows[1]
+          if (row1.every(cell => /^:?-+:?$/.test(cell.trim()))) {
+            hasSeparator = true
+          }
+        }
 
-  // 5. 解析换行
-  html = html.replace(/\n/g, '<br/>')
+        let startDataIdx = 0
+        if (hasSeparator) {
+          tableHtml += '<tr>'
+          tableRows[0].forEach(cell => {
+            tableHtml += `<th>${parseInline(cell)}</th>`
+          })
+          tableHtml += '</tr></thead><tbody>'
+          startDataIdx = 2
+        } else {
+          tableHtml += '</thead><tbody>'
+        }
 
-  return html
+        for (let i = startDataIdx; i < tableRows.length; i++) {
+          tableHtml += '<tr>'
+          tableRows[i].forEach(cell => {
+            tableHtml += `<td>${parseInline(cell)}</td>`
+          })
+          tableHtml += '</tr>'
+        }
+        tableHtml += '</tbody></table>'
+        html.push(tableHtml)
+      }
+      tableRows = []
+      inTable = false
+    }
+  }
+
+  const closeBlockquote = () => {
+    if (inBlockquote) {
+      html.push(`<blockquote class="md-blockquote">${parseInline(blockquoteContent.join('<br/>'))}</blockquote>`)
+      blockquoteContent = []
+      inBlockquote = false
+    }
+  }
+
+  const parseInline = (str) => {
+    let s = str
+    s = s.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>')
+    s = s.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>')
+    return s
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+
+    // 1. 代码块
+    if (trimmed.startsWith('```')) {
+      if (inCodeBlock) {
+        html.push(`<pre class="code-block"><code>${codeContent.join('\n')}</code></pre>`)
+        codeContent = []
+        inCodeBlock = false
+      } else {
+        closeList()
+        closeTable()
+        closeBlockquote()
+        inCodeBlock = true
+      }
+      continue
+    }
+
+    if (inCodeBlock) {
+      codeContent.push(line)
+      continue
+    }
+
+    // 2. 表格行 (以 | 开头和结尾)
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      closeList()
+      closeBlockquote()
+      inTable = true
+      const cells = trimmed.slice(1, -1).split('|').map(c => c.trim())
+      tableRows.push(cells)
+      continue
+    } else {
+      closeTable()
+    }
+
+    // 3. 引用块 (由于前面转义了，所以检测 &gt;)
+    if (trimmed.startsWith('&gt;')) {
+      closeList()
+      closeTable()
+      inBlockquote = true
+      const content = line.substring(line.indexOf('&gt;') + 4).trim()
+      blockquoteContent.push(content)
+      continue
+    } else {
+      closeBlockquote()
+    }
+
+    // 4. 无序列表
+    if (trimmed.startsWith('- ')) {
+      closeTable()
+      closeBlockquote()
+      if (!inList) {
+        html.push('<ul class="md-list">')
+        inList = true
+      }
+      const content = trimmed.substring(2)
+      html.push(`<li>${parseInline(content)}</li>`)
+      continue
+    } else {
+      closeList()
+    }
+
+    // 5. 分割线
+    if (trimmed === '---') {
+      html.push('<hr class="md-hr"/>')
+      continue
+    }
+
+    // 6. 标题
+    if (trimmed.startsWith('#')) {
+      let depth = 0
+      while (depth < trimmed.length && trimmed[depth] === '#') {
+        depth++
+      }
+      if (depth <= 6 && trimmed[depth] === ' ') {
+        const content = trimmed.substring(depth + 1)
+        html.push(`<h${depth} class="md-h${depth}">${parseInline(content)}</h${depth}>`)
+        continue
+      }
+    }
+
+    // 7. 普通文本段落
+    if (trimmed === '') {
+      html.push('')
+    } else {
+      html.push(parseInline(line))
+    }
+  }
+
+  closeList()
+  closeTable()
+  closeBlockquote()
+
+  let finalHtml = ''
+  for (let i = 0; i < html.length; i++) {
+    const item = html[i]
+    if (item === '') {
+      finalHtml += '<br/>'
+    } else if (
+      item.startsWith('<h') ||
+      item.startsWith('<ul') ||
+      item.startsWith('</ul') ||
+      item.startsWith('<li>') ||
+      item.startsWith('<table') ||
+      item.startsWith('<hr') ||
+      item.startsWith('<pre') ||
+      item.startsWith('<blockquote')
+    ) {
+      finalHtml += item + '\n'
+    } else {
+      finalHtml += item + '<br/>\n'
+    }
+  }
+
+  return finalHtml
 }
 </script>
 
@@ -720,8 +957,8 @@ const renderMarkdown = (text) => {
 .ai-chat-panel {
   position: fixed;
   top: 0;
-  right: -430px;
-  width: 400px;
+  right: -510px;
+  width: 480px;
   height: 100vh;
   background: #ffffff;
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.05);
@@ -750,6 +987,7 @@ const renderMarkdown = (text) => {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .header-avatar-badge {
@@ -771,6 +1009,7 @@ const renderMarkdown = (text) => {
   font-size: 1rem;
   color: #1e293b;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .status-online {
@@ -794,22 +1033,23 @@ const renderMarkdown = (text) => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .reindex-btn {
   background-color: #f8fafc;
   color: #475569;
   border: 1px solid #e2e8f0;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .reindex-btn:hover:not(:disabled) {
@@ -836,12 +1076,14 @@ const renderMarkdown = (text) => {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #64748b;
-  border-radius: 4px;
+  border-radius: 50%;
   transition: all 0.2s;
 }
 
@@ -934,7 +1176,7 @@ const renderMarkdown = (text) => {
 .message-item {
   display: flex;
   gap: 12px;
-  max-width: 85%;
+  max-width: 90%;
   align-self: flex-start;
 }
 
@@ -975,6 +1217,17 @@ const renderMarkdown = (text) => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.msg-text {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .assistant .msg-bubble {
@@ -1008,9 +1261,12 @@ const renderMarkdown = (text) => {
   border-radius: 6px;
   padding: 8px 12px;
   margin: 8px 0;
-  overflow-x: auto;
   font-family: 'Fira Code', 'Courier New', Courier, monospace;
   font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-all;
+  overflow-x: hidden;
 }
 
 .msg-text :deep(.inline-code) {
@@ -1034,6 +1290,83 @@ const renderMarkdown = (text) => {
 
 .msg-text :deep(li) {
   margin-bottom: 4px;
+}
+
+/* 表格样式 */
+.msg-text :deep(.md-table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 0.8rem;
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  table-layout: auto;
+  word-break: break-all;
+  word-wrap: break-word;
+}
+
+.msg-text :deep(.md-table th) {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: normal;
+  word-break: break-all;
+  word-wrap: break-word;
+}
+
+.msg-text :deep(.md-table td) {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  white-space: normal;
+  word-break: break-all;
+  word-wrap: break-word;
+}
+
+.msg-text :deep(.md-table tr:last-child td) {
+  border-bottom: none;
+}
+
+/* 标题样式 */
+.msg-text :deep(.md-h1),
+.msg-text :deep(.md-h2),
+.msg-text :deep(.md-h3),
+.msg-text :deep(.md-h4) {
+  color: #1e293b;
+  font-weight: 700;
+  margin-top: 14px;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.msg-text :deep(.md-h1) { font-size: 1.2rem; }
+.msg-text :deep(.md-h2) { font-size: 1.05rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+.msg-text :deep(.md-h3) { font-size: 0.95rem; }
+.msg-text :deep(.md-h4) { font-size: 0.88rem; }
+
+/* 水平分割线 */
+.msg-text :deep(.md-hr) {
+  border: 0;
+  height: 1px;
+  background: #e2e8f0;
+  margin: 14px 0;
+}
+
+/* 引用块样式 */
+.msg-text :deep(.md-blockquote) {
+  border-left: 4px solid #3498db;
+  background-color: #f8fafc;
+  padding: 8px 12px;
+  margin: 10px 0;
+  color: #475569;
+  border-radius: 0 6px 6px 0;
+  font-style: italic;
 }
 
 /* 加载中 Bouncing Dots */
@@ -1185,39 +1518,118 @@ const renderMarkdown = (text) => {
   color: #94a3b8;
 }
 
-.history-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* 历史会话卡片折叠样式 */
+.history-module-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s ease;
 }
 
-.history-date-divider {
+.history-module-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.history-module-card.expanded {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+}
+
+.module-header {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  background-color: #ffffff;
+  user-select: none;
+  gap: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.module-header:hover {
+  background-color: #f8fafc;
+}
+
+.module-header-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.module-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.module-title {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.module-time {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.icon-arrow {
+  width: 14px;
+  height: 14px;
+  color: #64748b;
+  transition: transform 0.25s ease;
+}
+
+.expand-toggle-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 10px 0;
-  position: relative;
+  color: #64748b;
+  border-radius: 4px;
+  transition: all 0.2s ease;
 }
 
-.history-date-divider::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
+.expand-toggle-btn:hover {
   background-color: #e2e8f0;
-  z-index: 1;
+  color: #1e293b;
 }
 
-.history-date-divider span {
-  position: relative;
-  z-index: 2;
-  background-color: #f8fafc;
-  padding: 0 12px;
-  font-size: 0.75rem;
-  color: #94a3b8;
-  font-weight: 600;
+.history-module-card.expanded .icon-arrow {
+  transform: rotate(180deg);
+  color: #3b82f6;
+}
+
+.module-body {
+  border-top: 1px solid #f1f5f9;
+  padding: 14px 16px;
+  background-color: #fafbfc;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.continue-chat-btn:hover {
+  background-color: #dbeafe !important;
+  color: #1d4ed8 !important;
 }
 
 .history-footer-note {
@@ -1235,15 +1647,16 @@ const renderMarkdown = (text) => {
   background-color: #ecfdf5;
   color: #059669;
   border: 1px solid #a7f3d0;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .new-chat-btn:hover:not(:disabled) {
@@ -1262,8 +1675,12 @@ const renderMarkdown = (text) => {
   height: 14px;
 }
 
+.action-btn-text {
+  display: none;
+}
+
 /* 适配移动端 */
-@media (max-width: 480px) {
+@media (max-width: 540px) {
   .ai-chat-panel {
     width: 100%;
     right: -100%;

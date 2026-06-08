@@ -1,6 +1,8 @@
 import os
 import json
-from typing import Optional
+import asyncio
+import datetime
+from typing import Optional, Any
 import redis
 import httpx
 import numpy as np
@@ -13,16 +15,25 @@ from agent import (
     load_chat_history,
     save_chat_history,
     search_similar_products,
-    get_agent_executor,
-    load_long_term_history,
-    save_long_term_history
+    get_agent_executor
 )
 from tools import (
     get_stock_snapshot,
     get_low_stock_products,
     get_category_stock_stats,
     get_product_detail,
-    get_all_products
+    get_all_products,
+    get_all_customers,
+    get_customer_detail,
+    get_all_suppliers,
+    get_supplier_detail,
+    get_purchase_orders,
+    get_purchase_order_detail,
+    get_sales_orders,
+    get_sales_order_detail,
+    get_all_warehouses,
+    get_recent_operation_logs,
+    get_all_users
 )
 
 router = APIRouter()
@@ -81,27 +92,197 @@ def get_user_id_from_auth_header(authorization: Optional[str] = None) -> Optiona
         print(f"WARNING: Error parsing token user info JSON: {e}")
     return None
 
+def get_active_session_id(redis_client: redis.Redis, user_id: str) -> Optional[str]:
+    val = redis_client.get(f"chat:active_session:{user_id}")
+    if val is None:
+        return None
+    if isinstance(val, bytes):
+        return val.decode("utf-8")
+    return val
+
+def create_active_session(redis_client: redis.Redis, user_id: str) -> str:
+    import uuid
+    session_id = f"session_{int(datetime.datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}"
+    redis_client.setex(f"chat:active_session:{user_id}", 90 * 86400, session_id)
+    redis_client.rpush(f"chat:sessions:{user_id}", session_id)
+    redis_client.expire(f"chat:sessions:{user_id}", 90 * 86400)
+    return session_id
+
+def migrate_old_flat_history(redis_client: redis.Redis, user_id: str):
+    """
+    Migrates flat history chat:history:{user_id} into multi-session schema.
+    """
+    old_key = f"chat:history:{user_id}"
+    vals = redis_client.lrange(old_key, 0, -1)
+    if not vals:
+        return
+        
+    try:
+        parsed_msgs = [json.loads(val) for val in vals]
+    except Exception as e:
+        print(f"WARNING: Error parsing old flat history for migration: {e}")
+        return
+
+    sessions_data = []
+    current_session_msgs: list[dict] = []
+    
+    for msg in parsed_msgs:
+        role_type = msg.get("type")
+        if role_type == "RESET":
+            if current_session_msgs:
+                sessions_data.append(current_session_msgs)
+                current_session_msgs = []
+            continue
+            
+        start_new_session = False
+        if not current_session_msgs:
+            start_new_session = True
+        else:
+            prev_msg = current_session_msgs[-1]
+            prev_time_str = prev_msg.get("time", "")
+            curr_time_str = msg.get("time", "")
+            if prev_time_str and curr_time_str:
+                try:
+                    prev_time = datetime.datetime.strptime(prev_time_str, "%Y-%m-%d %H:%M:%S")
+                    curr_time = datetime.datetime.strptime(curr_time_str, "%Y-%m-%d %H:%M:%S")
+                    diff_minutes = (curr_time - prev_time).total_seconds() / 60.0
+                    if diff_minutes > 15.0:
+                        start_new_session = True
+                except Exception:
+                    pass
+                    
+        if start_new_session:
+            if current_session_msgs:
+                sessions_data.append(current_session_msgs)
+            current_session_msgs = [msg]
+        else:
+            current_session_msgs.append(msg)
+            
+    if current_session_msgs:
+        sessions_data.append(current_session_msgs)
+        
+    import uuid
+    for idx, s_msgs in enumerate(sessions_data):
+        base_time = datetime.datetime.now() - datetime.timedelta(days=10) + datetime.timedelta(minutes=idx * 20)
+        session_id = f"session_{int(base_time.timestamp())}_{uuid.uuid4().hex[:8]}"
+        
+        history_key = f"chat:history:{user_id}:{session_id}"
+        pipe = redis_client.pipeline()
+        for msg in s_msgs:
+            pipe.rpush(history_key, json.dumps(msg))
+        pipe.expire(history_key, 90 * 86400)
+        pipe.rpush(f"chat:sessions:{user_id}", session_id)
+        pipe.expire(f"chat:sessions:{user_id}", 90 * 86400)
+        pipe.execute()
+        
+    redis_client.delete(old_key)
+
 @router.get("/history")
 async def get_history(request: Request):
     """
-    获取对话历史，对应 Java 后端 GET /api/ai/history
+    获取对话历史，对应 Java 后端 GET /api/ai/history (升级为多会话列表返回)
     """
     auth_header = request.headers.get("Authorization")
     user_id = get_user_id_from_auth_header(auth_header)
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
-    chat_history = load_long_term_history(redis_client, str(user_id))
+    sessions_key = f"chat:sessions:{user_id}"
+    session_ids = redis_client.lrange(sessions_key, 0, -1)
+    
+    # 平滑迁移旧数据
+    if not session_ids:
+        migrate_old_flat_history(redis_client, str(user_id))
+        session_ids = redis_client.lrange(sessions_key, 0, -1)
+        
+    sessions_list = []
+    for raw_session_id in session_ids:
+        session_id = raw_session_id.decode("utf-8") if isinstance(raw_session_id, bytes) else str(raw_session_id)
+        history_key = f"chat:history:{user_id}:{session_id}"
+        vals = redis_client.lrange(history_key, 0, -1)
+        if not vals:
+            continue
+            
+        messages = []
+        for val in vals:
+            try:
+                msg = json.loads(val)
+                role_type = msg.get("type")
+                if role_type == "USER":
+                    role = "user"
+                elif role_type == "AI":
+                    role = "assistant"
+                else:
+                    continue
+                    
+                messages.append({
+                    "role": role,
+                    "content": msg.get("text"),
+                    "time": msg.get("time", "")
+                })
+            except Exception:
+                continue
+                
+        if not messages:
+            continue
+            
+        # 提取第一个 User 提问作为会话标题
+        title = "新对话"
+        for m in messages:
+            if m["role"] == "user":
+                title = m["content"]
+                break
+                
+        # 提取第一条消息的时间作为会话时间
+        session_time = messages[0]["time"] if messages else ""
+        
+        sessions_list.append({
+            "sessionId": session_id,
+            "title": title,
+            "time": session_time,
+            "messages": messages
+        })
+        
+    return {"success": True, "message": "Success", "data": sessions_list}
+
+@router.get("/history/active")
+async def get_active_history(request: Request):
+    """
+    获取当前活跃会话的消息列表（平铺格式，由前端智能对话初始渲染调用）
+    """
+    auth_header = request.headers.get("Authorization")
+    user_id = get_user_id_from_auth_header(auth_header)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    active_session_id = get_active_session_id(redis_client, str(user_id))
+    if not active_session_id:
+        return {"success": True, "message": "Success", "data": []}
+        
+    history_key = f"chat:history:{user_id}:{active_session_id}"
+    vals = redis_client.lrange(history_key, 0, -1)
     
     dto_list = []
-    for msg in chat_history:
-        role = "user" if msg.get("type") == "USER" else "assistant"
-        dto_list.append({
-            "role": role,
-            "content": msg.get("text"),
-            "time": msg.get("time", "")
-        })
-            
+    if vals:
+        for val in vals:
+            try:
+                msg = json.loads(val)
+                role_type = msg.get("type")
+                if role_type == "USER":
+                    role = "user"
+                elif role_type == "AI":
+                    role = "assistant"
+                else:
+                    continue
+                    
+                dto_list.append({
+                    "role": role,
+                    "content": msg.get("text"),
+                    "time": msg.get("time", "")
+                })
+            except Exception:
+                continue
+                
     return {"success": True, "message": "Success", "data": dto_list}
 
 @router.post("/clear")
@@ -116,13 +297,112 @@ async def clear_chat_memory(request: Request):
         
     try:
         redis_client.delete(f"chat:memory:{user_id}")
+        redis_client.delete(f"chat:active_session:{user_id}")
         return {"success": True, "message": "当前会话已重置，开启新对话"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"重置会话失败: {str(e)}")
 
+@router.post("/restore")
+async def restore_chat_memory(request: Request, body: Any = Body(...)):
+    """
+    恢复/重置当前会话的内存上下文，从历史记录加载会话时使用
+    """
+    auth_header = request.headers.get("Authorization")
+    user_id = get_user_id_from_auth_header(auth_header)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    try:
+        session_id = None
+        messages = []
+        if isinstance(body, dict):
+            session_id = body.get("sessionId")
+            messages = body.get("messages", [])
+        elif isinstance(body, list):
+            messages = body
+            session_id = get_active_session_id(redis_client, str(user_id))
+            if not session_id:
+                session_id = create_active_session(redis_client, str(user_id))
+                
+        if session_id:
+            redis_client.setex(f"chat:active_session:{user_id}", 90 * 86400, session_id)
+            
+        from langchain_core.messages import BaseMessage
+        history_msgs: list[BaseMessage] = []
+        for msg in messages:
+            role = msg.get("role")
+            content = msg.get("content")
+            if role == "user":
+                history_msgs.append(HumanMessage(content=content))
+            elif role == "assistant":
+                history_msgs.append(AIMessage(content=content))
+                
+        save_chat_history(redis_client, str(user_id), history_msgs)
+        return {"success": True, "message": "已成功恢复会话上下文"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"恢复会话上下文失败: {str(e)}")
+
+async def run_agent_background(
+    agent_executor, input_text, chat_history, queue,
+    redis_client_text, user_id, message, ai_msg_index, now_str, session_id
+):
+    """
+    在后台运行的 Agent 执行器任务。即使客户端连接中断（如刷新页面），此任务仍会完全运行并更新历史。
+    """
+    from langchain_core.messages import HumanMessage, AIMessage
+    from agent import save_chat_history
+
+    full_response = ""
+    try:
+        async for event in agent_executor.astream_events(
+            {"input": input_text, "chat_history": chat_history},
+            version="v2"
+        ):
+            kind = event["event"]
+            if kind == "on_chat_model_stream":
+                content = event["data"]["chunk"].content
+                if content:
+                    full_response += content
+                    await queue.put({"type": "token", "content": content})
+
+        # 回复生成成功，更新长期历史记录中的占位符
+        if ai_msg_index != -1 and session_id:
+            key = f"chat:history:{user_id}:{session_id}"
+            final_ai_data = {"type": "AI", "text": full_response, "time": now_str}
+            redis_client_text.lset(key, ai_msg_index, json.dumps(final_ai_data))
+
+        # 更新短期会话内存
+        new_memory = chat_history + [HumanMessage(content=message), AIMessage(content=full_response)]
+        save_chat_history(redis_client_text, user_id, new_memory)
+
+        await queue.put({"type": "complete"})
+
+    except Exception as e:
+        print(f"Error executing agent stream in background: {e}")
+        # 将发生错误的信息或已生成的截断数据更新回历史中，避免对话数据损坏或完全丢失
+        if ai_msg_index != -1 and session_id:
+            key = f"chat:history:{user_id}:{session_id}"
+            error_text = full_response if full_response else f"[生成异常: {str(e)}]"
+            if full_response:
+                error_text += f"\n\n[发生错误，生成中断: {str(e)}]"
+            final_ai_data = {"type": "AI", "text": error_text, "time": now_str}
+            try:
+                redis_client_text.lset(key, ai_msg_index, json.dumps(final_ai_data))
+            except Exception as ex:
+                print(f"Failed to update history on error: {ex}")
+
+        # 更新错误至短期会话内存
+        try:
+            err_memory = chat_history + [HumanMessage(content=message), AIMessage(content=f"[生成中断: {str(e)}]")]
+            save_chat_history(redis_client_text, user_id, err_memory)
+        except Exception as ex:
+            print(f"Failed to update memory on error: {ex}")
+
+        await queue.put({"type": "error", "content": str(e)})
+
 async def sse_chat_generator(message: str, user_id: str, redis_client_text, redis_client_bin):
     """
-    SSE 生成器，实时返回 LLM Token，执行完后保存历史
+    SSE 生成器，通过读取异步队列实时返回 LLM Token 给前端，在后台任务中安全更新 Redis 历史记录。
     """
     # 1. 获取动态系统设置 (API Key, Base URL, Model Name)
     settings = await get_settings(JAVA_BACKEND_URL)
@@ -150,38 +430,81 @@ async def sse_chat_generator(message: str, user_id: str, redis_client_text, redi
         get_low_stock_products,
         get_category_stock_stats,
         get_product_detail,
-        get_all_products
+        get_all_products,
+        get_all_customers,
+        get_customer_detail,
+        get_all_suppliers,
+        get_supplier_detail,
+        get_purchase_orders,
+        get_purchase_order_detail,
+        get_sales_orders,
+        get_sales_order_detail,
+        get_all_warehouses,
+        get_recent_operation_logs,
+        get_all_users
     ]
     
     # 6. 获取智能体执行器
     agent_executor = get_agent_executor(api_key, base_url, model_name, tools_list)
     
-    # 7. 开始流式事件输出
-    full_response = ""
-    try:
-        async for event in agent_executor.astream_events(
-            {"input": input_text, "chat_history": chat_history},
-            version="v1"
-        ):
-            kind = event["event"]
-            if kind == "on_chat_model_stream":
-                # 只有最终生成的文本块有 content，工具调用的 content 为空
-                content = event["data"]["chunk"].content
-                if content:
-                    full_response += content
-                    yield f"data: {content}\n\n"
-                    
-        # 对话结束，保存新的对话记录至 Redis
-        new_history = chat_history + [HumanMessage(content=message), AIMessage(content=full_response)]
-        save_chat_history(redis_client_text, user_id, new_history)
-        save_long_term_history(redis_client_text, user_id, message, full_response)
+    # 7. 获取或创建活跃的 Session ID
+    session_id = get_active_session_id(redis_client_text, user_id)
+    if not session_id:
+        session_id = create_active_session(redis_client_text, user_id)
         
-        # 写入 [DONE] 结束符，对标 Java SseEmitter complete
+    # 立即在 Redis 中保存用户消息和 AI 占位符消息 (以确保在刷新时历史记录不丢失)
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    history_key = f"chat:history:{user_id}:{session_id}"
+    user_history_data = {"type": "USER", "text": message, "time": now_str}
+    ai_history_placeholder = {"type": "AI", "text": "...", "time": now_str}
+    
+    try:
+        new_len = redis_client_text.rpush(
+            history_key, 
+            json.dumps(user_history_data), 
+            json.dumps(ai_history_placeholder)
+        )
+        ai_msg_index = new_len - 1
+        redis_client_text.expire(history_key, 90 * 86400)
+    except Exception as e:
+        print(f"WARNING: Error saving initial history placeholder: {e}")
+        ai_msg_index = -1
+        
+    # 同步占位符至短期会话内存
+    try:
+        placeholder_memory = chat_history + [HumanMessage(content=message), AIMessage(content="...")]
+        save_chat_history(redis_client_text, user_id, placeholder_memory)
+    except Exception as e:
+        print(f"WARNING: Error saving initial memory placeholder: {e}")
+        
+    # 8. 创建 asyncio.Queue 并启动后台执行任务
+    queue: asyncio.Queue = asyncio.Queue()
+    
+    asyncio.create_task(run_agent_background(
+        agent_executor, input_text, chat_history, queue,
+        redis_client_text, user_id, message, ai_msg_index, now_str, session_id
+    ))
+    
+    # 9. 读取 Queue 并以 SSE 协议返回给前端
+    try:
+        while True:
+            event = await queue.get()
+            event_type = event.get("type")
+            
+            if event_type == "token":
+                content = event.get("content")
+                yield f"data: {json.dumps({'content': content})}\n\n"
+            elif event_type == "complete":
+                break
+            elif event_type == "error":
+                raise Exception(event.get("content"))
+                
+        # 写入 [DONE] 结束符
         yield "event: complete\n"
         yield "data: [DONE]\n\n"
         
     except Exception as e:
-        print(f"Error executing agent stream: {e}")
+        print(f"Error yielding stream events: {e}")
         yield "event: error\n"
         yield f"data: {str(e)}\n\n"
 

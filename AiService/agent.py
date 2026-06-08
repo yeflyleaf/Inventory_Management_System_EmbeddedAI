@@ -12,12 +12,23 @@ from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 SYSTEM_MESSAGE_TEMPLATE = """你是一位专业、聪明且严谨的仓储分析师助手。
 你拥有两种获取数据并服务用户的方式，需根据问题特征选择合适的协同策略：
 1. 当用户提问包含模糊、概念性或语义搜索倾向时（例如“找一下那些听起来像数码产品的货物”、“推荐适合送礼的商品”、“查看是否有应季的水果”等），请优先利用内置的 RAG 语义检索知识库，它会自动关联和召回与用户提问最相关的商品上下文信息，无需调用工具。
-2. 当用户需要精确、全局的统计或明细数据时，请精准且优先激活对应的专用 `@Tool` 工具函数：
+2. 当用户需要精确、全局的统计、列表或明细数据时，请精准且优先激活对应的专用 `@Tool` 工具函数：
    - 当需要统计低库存商品、断货预警、获取低于警戒线的商品列表时，请调用 `get_low_stock_products`；
    - 当需要统计或盘点各商品分类的库存分布和占比时，请调用 `get_category_stock_stats`；
    - 当需要获取某个特定商品的详细规格和价格等具体信息时，请调用 `get_product_detail`；
    - 当需要获取特定仓库或全部仓库的实时库存快照（如库存数量、变动时间）时，请调用 `get_stock_snapshot`；
-   - 当需要查询所有商品的基础列表信息时，请调用 `get_all_products`。
+   - 当需要查询所有商品的基础列表信息时，请调用 `get_all_products`；
+   - 当需要查询系统中的客户列表、分析客户时，请调用 `get_all_customers`；
+   - 当需要获取特定客户的详细联系信息与地址时，请调用 `get_customer_detail`；
+   - 当需要查询合作的供应商列表时，请调用 `get_all_suppliers`；
+   - 当需要获取特定供应商的详细联系信息与地址时，请调用 `get_supplier_detail`；
+   - 当需要盘点或查询系统里的采购订单时，请调用 `get_purchase_orders`；
+   - 当需要查看特定采购订单的具体商品及金额明细时，请调用 `get_purchase_order_detail`；
+   - 当需要盘点或查询系统里的销售订单时，请调用 `get_sales_orders`；
+   - 当需要查看特定销售订单的具体商品及金额明细时，请调用 `get_sales_order_detail`；
+   - 当需要查询所有的仓库列表时，请调用 `get_all_warehouses`；
+   - 当需要追踪系统的近期操作记录、变更历史或用户操作轨迹时，请调用 `get_recent_operation_logs`；
+   - 当需要查询系统中的用户账号列表或分析用户、角色分布时，请调用 `get_all_users`。
 请结合检索到的 RAG 知识库上下文或工具返回的实时结构化数据，给出专业、严谨且准确的回答。当发现某些商品库存低于警戒线或为0时，应该结合当前情况，主动为用户生成合理的补货建议或提示。
 请使用清晰明了的中文进行回答，支持 Markdown 格式排版。"""
 
@@ -34,18 +45,27 @@ def get_embedding_model():
     return _embedding_model
 
 _index_verified = False
+_redis_search_supported = True
 
 def ensure_vector_index(redis_client: redis.Redis, index_name: str):
     """
     Ensure the RediSearch index exists, creating it if it doesn't.
     """
-    global _index_verified
+    global _index_verified, _redis_search_supported
+    if not _redis_search_supported:
+        return
     if _index_verified:
         return
     try:
         redis_client.ft(index_name).info()
         _index_verified = True
-    except Exception:
+    except Exception as e:
+        err_msg = str(e).lower()
+        if "unknown command" in err_msg:
+            print("WARNING: Redis Search (RediSearch) module is not loaded or supported by the Redis server. Vector search (RAG) will be disabled.")
+            _redis_search_supported = False
+            return
+            
         print(f"Index {index_name} not found. Creating RediSearch index...")
         from redis.commands.search.field import TextField, TagField, VectorField  # type: ignore[import-not-found]
         from redis.commands.search.index_definition import IndexDefinition, IndexType  # type: ignore[import-not-found]
@@ -66,14 +86,24 @@ def ensure_vector_index(redis_client: redis.Redis, index_name: str):
             )
             print(f"Index {index_name} created successfully.")
             _index_verified = True
-        except Exception as e:
-            print(f"Error creating RediSearch index {index_name}: {e}")
+        except Exception as ex:
+            ex_msg = str(ex).lower()
+            if "unknown command" in ex_msg:
+                print("WARNING: Redis Search (RediSearch) module is not loaded or supported by the Redis server. Vector search (RAG) will be disabled.")
+                _redis_search_supported = False
+            else:
+                print(f"Error creating RediSearch index {index_name}: {ex}")
 
 def search_similar_products(redis_client: redis.Redis, query_text: str, index_name: str, min_similarity=0.6) -> list:
     """
     Perform vector search on Redis (RAG retrieval)
     """
+    global _redis_search_supported
+    if not _redis_search_supported:
+        return []
     ensure_vector_index(redis_client, index_name)
+    if not _redis_search_supported:
+        return []
     try:
         model = get_embedding_model()
         # Compute vector representation (384 dimensions)
@@ -102,7 +132,12 @@ def search_similar_products(redis_client: redis.Redis, query_text: str, index_na
                 
         return matched_docs
     except Exception as e:
-        print(f"WARNING: Error searching similar products: {e}")
+        err_msg = str(e).lower()
+        if "unknown command" in err_msg:
+            print("WARNING: Redis Search (RediSearch) module is not loaded or supported by the Redis server. Vector search (RAG) will be disabled.")
+            _redis_search_supported = False
+        else:
+            print(f"WARNING: Error searching similar products: {e}")
         return []
 
 def load_chat_history(redis_client: redis.Redis, user_id: str) -> list:
@@ -198,7 +233,7 @@ class AgentExecutorWrapper:
     def __init__(self, graph: Any):
         self.graph = graph
 
-    async def astream_events(self, inputs: dict[str, Any], version: str = "v1") -> Any:
+    async def astream_events(self, inputs: dict[str, Any], version: str = "v2") -> Any:
         chat_history = inputs.get("chat_history", [])
         input_text = inputs.get("input", "")
         
