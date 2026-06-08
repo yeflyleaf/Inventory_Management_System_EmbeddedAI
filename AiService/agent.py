@@ -1,12 +1,12 @@
 import os
 import json
+from typing import Any
 import redis
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_openai_tools_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain.agents import create_agent
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
 # System Prompt from original Java SystemMessage
 SYSTEM_MESSAGE_TEMPLATE = """你是一位专业、聪明且严谨的仓储分析师助手。
@@ -33,18 +33,24 @@ def get_embedding_model():
         _embedding_model = SentenceTransformer(model_name)
     return _embedding_model
 
+_index_verified = False
+
 def ensure_vector_index(redis_client: redis.Redis, index_name: str):
     """
     Ensure the RediSearch index exists, creating it if it doesn't.
     """
+    global _index_verified
+    if _index_verified:
+        return
     try:
         redis_client.ft(index_name).info()
+        _index_verified = True
     except Exception:
         print(f"Index {index_name} not found. Creating RediSearch index...")
-        from redis.commands.search.field import TextField, TagField, VectorField
-        from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+        from redis.commands.search.field import TextField, TagField, VectorField  # type: ignore[import-not-found]
+        from redis.commands.search.index_definition import IndexDefinition, IndexType  # type: ignore[import-not-found]
         
-        schema = (
+        schema = [
             TextField("text"),
             TagField("productId"),
             VectorField("vector", "FLAT", {
@@ -52,13 +58,14 @@ def ensure_vector_index(redis_client: redis.Redis, index_name: str):
                 "DIMENSION": 384,
                 "DISTANCE_METRIC": "COSINE"
             })
-        )
+        ]
         try:
             redis_client.ft(index_name).create_index(
                 schema,
                 definition=IndexDefinition(prefix=["embedding:"], index_type=IndexType.HASH)
             )
             print(f"Index {index_name} created successfully.")
+            _index_verified = True
         except Exception as e:
             print(f"Error creating RediSearch index {index_name}: {e}")
 
@@ -75,10 +82,8 @@ def search_similar_products(redis_client: redis.Redis, query_text: str, index_na
         # In RediSearch with COSINE distance metric:
         # score = 1 - cosine_similarity.
         # Therefore, cosine_similarity >= 0.6 maps to score <= 0.4
-        max_distance = 1.0 - min_similarity
-        
-        from redis.commands.search.query import Query
-        q = Query(f"*=>[KNN 5 @vector $vector_blob AS score]")\
+        from redis.commands.search.query import Query  # type: ignore[import-not-found]
+        q = Query("*=>[KNN 5 @vector $vector_blob AS score]")\
             .sort_by("score")\
             .return_fields("text", "productId", "score")\
             .dialect(2)
@@ -111,7 +116,7 @@ def load_chat_history(redis_client: redis.Redis, user_id: str) -> list:
         return []
     try:
         data = json.loads(val)
-        messages = []
+        messages: list[BaseMessage] = []
         for msg in data:
             role = msg.get("type")
             text = msg.get("text")
@@ -145,21 +150,90 @@ def save_chat_history(redis_client: redis.Redis, user_id: str, history_messages:
     except Exception as e:
         print(f"WARNING: Error saving chat memory for user {user_id}: {e}")
 
-def get_agent_executor(api_key: str, base_url: str, model_name: str, tools: list):
+def save_long_term_history(redis_client: redis.Redis, user_id: str, human_msg: str, ai_msg: str):
+    """
+    保存完整的历史记录到 chat:history:{user_id} 中，保留至少 90 天
+    """
+    import datetime
+    key = f"chat:history:{user_id}"
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    user_data = {"type": "USER", "text": human_msg, "time": now_str}
+    ai_data = {"type": "AI", "text": ai_msg, "time": now_str}
+    
+    try:
+        redis_client.rpush(key, json.dumps(user_data), json.dumps(ai_data))
+        redis_client.expire(key, 90 * 86400)
+    except Exception as e:
+        print(f"WARNING: Error saving long-term history for user {user_id}: {e}")
+
+def load_long_term_history(redis_client: redis.Redis, user_id: str) -> list:
+    """
+    加载完整的历史记录，保留至少 90 天
+    """
+    import datetime
+    key = f"chat:history:{user_id}"
+    try:
+        vals = redis_client.lrange(key, 0, -1)
+        if not vals:
+            # 如果长历史为空，尝试从 chat:memory 转换（平滑升级）
+            memory = load_chat_history(redis_client, user_id)
+            if memory:
+                now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                history_data = []
+                for msg in memory:
+                    role_type = "USER" if isinstance(msg, HumanMessage) else "AI"
+                    history_data.append({"type": role_type, "text": msg.content, "time": now_str})
+                    redis_client.rpush(key, json.dumps({"type": role_type, "text": msg.content, "time": now_str}))
+                redis_client.expire(key, 90 * 86400)
+                return history_data
+            return []
+        
+        return [json.loads(val) for val in vals]
+    except Exception as e:
+        print(f"WARNING: Error loading long-term history for user {user_id}: {e}")
+        return []
+
+class AgentExecutorWrapper:
+    def __init__(self, graph: Any):
+        self.graph = graph
+
+    async def astream_events(self, inputs: dict[str, Any], version: str = "v1") -> Any:
+        chat_history = inputs.get("chat_history", [])
+        input_text = inputs.get("input", "")
+        
+        messages: list[BaseMessage] = list(chat_history)
+        if input_text:
+            messages.append(HumanMessage(content=input_text))
+            
+        graph_input = {"messages": messages}
+        
+        async for event in self.graph.astream_events(graph_input, version=version):
+            yield event
+
+_agent_executor_cache: dict[Any, Any] = {}
+
+def get_agent_executor(api_key: str, base_url: str, model_name: str, tools: list) -> AgentExecutorWrapper:
+    tool_names = tuple(t.name for t in tools)
+    cache_key = (api_key, base_url, model_name, tool_names)
+    
+    global _agent_executor_cache
+    if cache_key in _agent_executor_cache:
+        return _agent_executor_cache[cache_key]
+        
     llm = ChatOpenAI(
-        openai_api_key=api_key,
-        openai_api_base=base_url,
-        model_name=model_name,
+        openai_api_key=api_key,  # type: ignore[call-arg]
+        openai_api_base=base_url,  # type: ignore[call-arg]
+        model_name=model_name,  # type: ignore[call-arg]
         temperature=0.7,
         streaming=True
     )
     
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", SYSTEM_MESSAGE_TEMPLATE),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ])
-    
-    agent = create_openai_tools_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=True)
+    graph = create_agent(
+        model=llm,
+        tools=tools,
+        system_prompt=SYSTEM_MESSAGE_TEMPLATE
+    )
+    executor = AgentExecutorWrapper(graph)
+    _agent_executor_cache[cache_key] = executor
+    return executor

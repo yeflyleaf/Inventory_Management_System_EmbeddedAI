@@ -184,7 +184,7 @@ Java 服务将运行于 **http://localhost:8080**。
 cd AiService
 python -m venv venv
 # Windows 激活虚拟环境:
-.\venv\Scripts\activate
+./venv/Scripts/activate
 # Linux/macOS 使用: source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -198,42 +198,48 @@ _(注：前端开发环境已在 `vite.config.js` 中配置了多端反向代理
 
 ## 生产部署方案 (Deployment)
 
-### Docker Compose 一键容器化部署
+### 1. 准备环境配置
 
-项目原生提供了一键容器化编排服务。我们将自动拉起 Nginx 前端、Spring Boot 后端、以及独立的 `Redis Stack Server` 向量数据库镜像。
-
-#### 1. 准备环境变量
-
-在项目工程根目录处拷贝示例环境变量文件，以创建你的私有环境配置文件：
+在项目工程根目录下执行：
 
 ```bash
+# 复制环境变量模板
 cp .env.example .env
 ```
 
-用编辑器打开 `.env` 文件，完善你的 MySQL 连接参数、Redis 的访问秘匙，**以及核心大模型的连接端点**：
+配置 `.env` 文件中的核心连接信息（MySQL、Redis、大模型 API Key 等）。
 
-```ini
-# MySQL 数据库配置 (需预先建表，宿主机 Host 设为 host.docker.internal)
-MYSQL_HOST=host.docker.internal
-MYSQL_PORT=3306
-MYSQL_DATABASE=your_database_name
-MYSQL_USERNAME=your_username
-MYSQL_PASSWORD=your_password
+### 2. 方案 A：镜像仓库打包部署 (推/拉模式 - 推荐)
 
-# 大模型 API 连接信息 (将注入到 Docker 后端容器中)
-AI_BASE_URL=https://api.openai.com/v1
-AI_API_KEY=your_api_key
-AI_MODEL_NAME=gpt
-
-# 域名配置
-DOMAIN_NAME=localhost
-```
-
-#### 2. 一键集成编译及构建
-
-在确认当前宿主机已经启动了 Docker Engine 或 Docker Desktop 的前提下，运行：
+在本地开发机执行打包并推送到 Docker Hub / 镜像仓库：
 
 ```bash
+# 登录镜像仓库
+docker login
+
+# 构建多阶段 Docker 镜像
+docker-compose build
+
+# 推送镜像到仓库
+docker-compose push
+```
+
+在云服务器上，仅放置 `docker-compose.yml` 和 `.env` 配置文件，直接一键部署：
+
+```bash
+# 一键拉取最新构建好的镜像
+docker-compose pull
+
+# 后台启动微服务集群
+docker-compose up -d
+```
+
+### 3. 方案 B：服务器现场构建部署
+
+直接在云服务器拉取源码并执行一键编译、构建与运行：
+
+```bash
+# 一键完成编译、镜像构建并后台运行
 docker-compose up -d --build
 ```
 

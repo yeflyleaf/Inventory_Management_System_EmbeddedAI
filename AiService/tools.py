@@ -1,5 +1,6 @@
 import os
 import httpx
+from typing import Optional
 from langchain_core.tools import tool
 
 JAVA_BACKEND_URL = os.getenv("JAVA_BACKEND_URL", "http://localhost:8080")
@@ -9,7 +10,7 @@ def set_java_backend_url(url: str):
     JAVA_BACKEND_URL = url
 
 @tool
-def get_stock_snapshot(warehouseId: int = None) -> list:
+def get_stock_snapshot(warehouseId: Optional[int] = None) -> list:
     """获取指定仓库或所有仓库的当前库存列表快照（包含当前库存数量、商品名称、SKU、分类、最后变动时间）"""
     params = {}
     if warehouseId is not None:

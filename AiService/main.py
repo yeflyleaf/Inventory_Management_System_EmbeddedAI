@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from router import router
-from tools import set_java_backend_url
+from router import router  # noqa: E402
+from tools import set_java_backend_url  # noqa: E402
 
 # Configure backend connection url from env
 java_backend_url = os.getenv("JAVA_BACKEND_URL", "http://localhost:8080")
@@ -26,7 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
@@ -47,6 +47,16 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Register routes under '/ai' prefix (matched by API Gateway routing /api/ai/)
 app.include_router(router, prefix="/ai")
+
+@app.on_event("startup")
+def startup_event():
+    try:
+        from agent import get_embedding_model
+        print("Preloading sentence transformer model at startup...")
+        get_embedding_model()
+        print("Sentence transformer model preloaded successfully.")
+    except Exception as e:
+        print(f"Error preloading embedding model: {e}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

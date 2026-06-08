@@ -3,14 +3,19 @@
   功能描述: 提供全系统可用的悬浮 AI 对话面板，支持打字机流式输出、工具调用展示、商品数据同步和快捷指令。
 -->
 <template>
-  <div class="ai-assistant-wrapper">
+  <div class="ai-assistant-wrapper" :style="wrapperStyle">
     <!-- 悬浮球按钮 -->
-    <button class="ai-floating-btn" :class="{ 'panel-open': isOpen }" @click="togglePanel" title="AI 仓储助手">
+    <button 
+      class="ai-floating-btn" 
+      :class="{ 'panel-open': isOpen }" 
+      @mousedown="startDrag" 
+      @touchstart="startDrag" 
+      @click="handleBtnClick"
+      title="AI 仓储智能助手"
+    >
       <svg class="ai-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="currentColor"/>
-        <path d="M8 13C8.55228 13 9 12.5523 9 12C9 11.4477 8.55228 11 8 11C7.44772 11 7 11.4477 7 12C7 12.5523 7.44772 13 8 13Z" fill="currentColor"/>
-        <path d="M16 13C16.5523 13 17 12.5523 17 12C17 11.4477 16.5523 11 16 11C15.4477 11 15 11.4477 15 12C15 12.5523 15.4477 13 16 13Z" fill="currentColor"/>
-        <path d="M12 17C14 17 15.5 15.5 15.5 14H8.5C8.5 15.5 10 17 12 17Z" fill="currentColor"/>
+        <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/>
+        <text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" font-family="'Outfit', 'Inter', system-ui, sans-serif" font-weight="900" font-size="8.5" fill="currentColor" letter-spacing="0.2">AI</text>
       </svg>
       <span class="btn-tooltip" v-if="!isOpen">AI 助手</span>
     </button>
@@ -27,6 +32,18 @@
           </div>
         </div>
         <div class="header-actions">
+          <button 
+            v-if="activeTab === 'chat'"
+            class="action-btn new-chat-btn" 
+            @click="startNewChat" 
+            :disabled="isClearing" 
+            title="清空上下文，开启新对话"
+          >
+            <svg class="icon-new" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            开启新对话
+          </button>
           <button class="action-btn reindex-btn" @click="triggerReindex" :disabled="isReindexing" title="全量商品向量同步">
             <svg class="icon-sync" :class="{ 'spinning': isReindexing }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
@@ -42,8 +59,26 @@
         </div>
       </div>
 
-      <!-- 对话内容区 -->
-      <div class="chat-messages" ref="messageContainer">
+      <!-- 选项卡 -->
+      <div class="chat-tabs">
+        <button 
+          class="tab-item" 
+          :class="{ active: activeTab === 'chat' }" 
+          @click="activeTab = 'chat'"
+        >
+          智能对话
+        </button>
+        <button 
+          class="tab-item" 
+          :class="{ active: activeTab === 'history' }" 
+          @click="activeTab = 'history'"
+        >
+          历史记录
+        </button>
+      </div>
+
+      <!-- 对话内容区 (当前会话) -->
+      <div class="chat-messages" ref="messageContainer" v-if="activeTab === 'chat'">
         <!-- 欢迎卡片 -->
         <div class="welcome-card" v-if="messages.length === 0">
           <div class="welcome-icon">
@@ -94,8 +129,38 @@
         </div>
       </div>
 
+      <!-- 历史记录展示区 -->
+      <div class="history-list" v-else>
+        <div v-if="isHistoryLoading" class="empty-history">
+          <svg class="icon-sync spinning" style="width: 24px; height: 24px; color: #3498db;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <p>正在加载历史记录...</p>
+        </div>
+        <div v-else-if="historyMessages.length === 0" class="empty-history">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="empty-history-icon">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <p>暂无历史对话记录</p>
+        </div>
+        <div v-else v-for="(msgs, date) in groupedHistory" :key="date" class="history-group">
+          <div class="history-date-divider">
+            <span>{{ date }}</span>
+          </div>
+          <div v-for="(msg, idx) in msgs" :key="idx" :class="['message-item', msg.role]">
+            <div class="msg-avatar" v-if="msg.role === 'assistant'">AI</div>
+            <div class="msg-avatar user" v-else>我</div>
+            <div class="msg-bubble">
+              <div class="msg-text" v-html="renderMarkdown(msg.content)"></div>
+              <div class="msg-time">{{ msg.time ? msg.time.split(' ')[1] || msg.time : '' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 底部输入栏 -->
-      <div class="panel-input-area">
+      <div class="panel-input-area" v-if="activeTab === 'chat'">
         <textarea 
           ref="inputBox" 
           v-model="inputMsg" 
@@ -109,12 +174,17 @@
           </svg>
         </button>
       </div>
+
+      <!-- 历史只读底栏 -->
+      <div class="history-footer-note" v-else>
+        提示：仅展示最近 90 天内的完整对话历史记录
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 
 const isOpen = ref(false)
 const isLoading = ref(false)
@@ -124,7 +194,170 @@ const messages = ref([])
 const messageContainer = ref(null)
 const inputBox = ref(null)
 
-// 从后端拉取当前登录用户的对话历史记录
+// --- 悬浮球拖拽逻辑 ---
+const wrapperLeft = ref(null)
+const wrapperTop = ref(null)
+const isDragging = ref(false)
+
+const wrapperStyle = computed(() => {
+  if (wrapperLeft.value && wrapperTop.value) {
+    return {
+      left: wrapperLeft.value,
+      top: wrapperTop.value,
+      right: 'auto',
+      bottom: 'auto'
+    }
+  }
+  return {
+    right: '24px',
+    bottom: '24px'
+  }
+})
+
+const startDrag = (event) => {
+  if (event.type === 'touchstart') {
+    // 允许触摸点击
+  } else {
+    event.preventDefault()
+  }
+
+  const isTouch = event.type.startsWith('touch')
+  const startX = isTouch ? event.touches[0].clientX : event.clientX
+  const startY = isTouch ? event.touches[0].clientY : event.clientY
+
+  const wrapper = document.querySelector('.ai-assistant-wrapper')
+  if (!wrapper) return
+  const rect = wrapper.getBoundingClientRect()
+
+  const offsetX = startX - rect.left
+  const offsetY = startY - rect.top
+
+  let moved = false
+
+  const onDrag = (moveEvent) => {
+    moved = true
+    const currentX = isTouch ? moveEvent.touches[0].clientX : moveEvent.clientX
+    const currentY = isTouch ? moveEvent.touches[0].clientY : moveEvent.clientY
+
+    let newLeft = currentX - offsetX
+    let newTop = currentY - offsetY
+
+    const margin = 10
+    const minLeft = margin
+    const maxLeft = window.innerWidth - rect.width - margin
+    const minTop = margin
+    const maxTop = window.innerHeight - rect.height - margin
+
+    newLeft = Math.max(minLeft, Math.min(newLeft, maxLeft))
+    newTop = Math.max(minTop, Math.min(newTop, maxTop))
+
+    wrapperLeft.value = `${newLeft}px`
+    wrapperTop.value = `${newTop}px`
+  }
+
+  const stopDrag = () => {
+    document.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onDrag)
+    document.removeEventListener(isTouch ? 'touchend' : 'mouseup', stopDrag)
+
+    if (moved) {
+      isDragging.value = true
+      setTimeout(() => {
+        isDragging.value = false
+      }, 50)
+    }
+  }
+
+  document.addEventListener(isTouch ? 'touchmove' : 'mousemove', onDrag)
+  document.addEventListener(isTouch ? 'touchend' : 'mouseup', stopDrag)
+}
+
+const handleBtnClick = () => {
+  if (isDragging.value) return
+  togglePanel()
+}
+
+// --- 选项卡与历史记录状态 ---
+const activeTab = ref('chat') // 'chat' 智能对话 | 'history' 历史记录
+const isHistoryLoading = ref(false)
+const historyMessages = ref([])
+const isClearing = ref(false)
+
+const groupedHistory = computed(() => {
+  const groups = {}
+  for (const msg of historyMessages.value) {
+    const dateStr = msg.time ? msg.time.split(' ')[0] : '未知日期'
+    if (!groups[dateStr]) {
+      groups[dateStr] = []
+    }
+    groups[dateStr].push(msg)
+  }
+  return groups
+})
+
+// 开启新对话（清空会话上下文）
+const startNewChat = async () => {
+  if (isClearing.value) return
+  isClearing.value = true
+  
+  const token = localStorage.getItem('token')
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+  
+  try {
+    const res = await fetch(`${baseUrl}/ai/clear`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    if (res.ok) {
+      messages.value = []
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      messages.value.push({
+        role: 'assistant',
+        content: '当前会话已重置。我已经忘记了之前的对话上下文，我们可以开始新的话题了！',
+        time: timeStr
+      })
+      scrollToBottom()
+    }
+  } catch (error) {
+    console.error('清空会话失败:', error)
+  } finally {
+    isClearing.value = false
+  }
+}
+
+// 从后端拉取完整的历史记录
+const loadHistoryList = async () => {
+  const token = localStorage.getItem('token')
+  if (!token) return
+  
+  isHistoryLoading.value = true
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+  try {
+    const res = await fetch(`${baseUrl}/ai/history`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success && data.data) {
+        historyMessages.value = data.data.map(item => ({
+          role: item.role,
+          content: item.content,
+          time: item.time || ''
+        }))
+      }
+    }
+  } catch (error) {
+    console.error('加载历史记录失败:', error)
+  } finally {
+    isHistoryLoading.value = false
+  }
+}
+
+// 从后端拉取当前登录用户的对话历史记录 (用于智能对话初始渲染，限制 10 条)
 const loadChatHistory = async () => {
   const token = localStorage.getItem('token')
   if (!token) return
@@ -140,11 +373,13 @@ const loadChatHistory = async () => {
     if (res.ok) {
       const data = await res.json()
       if (data.success && data.data) {
-        messages.value = data.data.map(item => ({
+        const rawMsgs = data.data.map(item => ({
           role: item.role,
           content: item.content,
-          time: item.time || ''
+          time: item.time ? item.time.split(' ')[1] || item.time : ''
         }))
+        // 为避免智能对话窗口过于臃肿，默认只加载最新的 10 条消息
+        messages.value = rawMsgs.slice(-10)
         scrollToBottom()
       }
     }
@@ -156,11 +391,24 @@ const loadChatHistory = async () => {
 // 监听面板开启，自动聚焦输入框并拉取历史记录
 watch(isOpen, (newVal) => {
   if (newVal) {
-    loadChatHistory()
+    if (activeTab.value === 'chat') {
+      loadChatHistory()
+    } else {
+      loadHistoryList()
+    }
     nextTick(() => {
       inputBox.value?.focus()
       scrollToBottom()
     })
+  }
+})
+
+// 监听 Tab 切换
+watch(activeTab, (newVal) => {
+  if (newVal === 'history') {
+    loadHistoryList()
+  } else if (newVal === 'chat') {
+    loadChatHistory()
   }
 })
 
@@ -873,6 +1121,145 @@ const renderMarkdown = (text) => {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* 选项卡样式 */
+.chat-tabs {
+  display: flex;
+  background-color: #f1f5f9;
+  padding: 4px;
+  margin: 12px 20px 0 20px;
+  border-radius: 8px;
+  gap: 4px;
+}
+
+.tab-item {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.tab-item:hover {
+  color: #1e293b;
+}
+
+.tab-item.active {
+  background-color: #ffffff;
+  color: #2c3e50;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* 历史记录布局 */
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: #f8fafc;
+}
+
+.empty-history {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+  gap: 12px;
+}
+
+.empty-history-icon {
+  width: 40px;
+  height: 40px;
+  opacity: 0.5;
+  color: #94a3b8;
+}
+
+.history-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-date-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 0;
+  position: relative;
+}
+
+.history-date-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background-color: #e2e8f0;
+  z-index: 1;
+}
+
+.history-date-divider span {
+  position: relative;
+  z-index: 2;
+  background-color: #f8fafc;
+  padding: 0 12px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.history-footer-note {
+  padding: 12px 20px;
+  border-top: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* 按钮样式微调 */
+.new-chat-btn {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.new-chat-btn:hover:not(:disabled) {
+  background-color: #d1fae5;
+  color: #047857;
+  border-color: #6ee7b7;
+}
+
+.new-chat-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.icon-new {
+  width: 14px;
+  height: 14px;
 }
 
 /* 适配移动端 */

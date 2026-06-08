@@ -1,16 +1,17 @@
 import time
 import datetime
+from typing import Any
 from fastapi import HTTPException
 import redis
 
 # In-memory settings cache to avoid spamming the Java backend on every token check
-_settings_cache = {}
+_settings_cache: dict[str, Any] = {}
 _settings_cache_time = 0.0
 
 async def get_settings(java_backend_url: str):
     global _settings_cache, _settings_cache_time
     now = time.time()
-    if now - _settings_cache_time < 5.0 and _settings_cache:
+    if now - _settings_cache_time < 60.0 and _settings_cache:
         return _settings_cache
     
     import httpx

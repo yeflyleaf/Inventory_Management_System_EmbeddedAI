@@ -504,8 +504,6 @@ const refreshData = async () => {
       totalStock: totalStockVal,
       lowStock: lowStockVal,
       zeroStock: zeroStockVal,
-      lowStock: lowStockVal,
-      zeroStock: zeroStockVal,
 
       pendingPurchaseOrders: statsRes?.pendingPurchaseOrders || 0,
       pendingSalesOrders: statsRes?.pendingSalesOrders || 0,

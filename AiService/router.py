@@ -1,9 +1,10 @@
 import os
 import json
+from typing import Optional
 import redis
 import httpx
 import numpy as np
-from fastapi import APIRouter, Request, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Request, Body, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage, AIMessage
 
@@ -12,7 +13,9 @@ from agent import (
     load_chat_history,
     save_chat_history,
     search_similar_products,
-    get_agent_executor
+    get_agent_executor,
+    load_long_term_history,
+    save_long_term_history
 )
 from tools import (
     get_stock_snapshot,
@@ -50,7 +53,7 @@ redis_client_binary = redis.Redis(
 
 JAVA_BACKEND_URL = os.getenv("JAVA_BACKEND_URL", "http://localhost:8080")
 
-def get_user_id_from_auth_header(authorization: str = None) -> int:
+def get_user_id_from_auth_header(authorization: Optional[str] = None) -> Optional[int]:
     """
     通过 Authorization header 里的 Bearer Token 校验用户，从 Redis 缓存加载用户信息。
     对标原 Java 后端拦截器。
@@ -88,16 +91,34 @@ async def get_history(request: Request):
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
-    chat_history = load_chat_history(redis_client, str(user_id))
+    chat_history = load_long_term_history(redis_client, str(user_id))
     
     dto_list = []
     for msg in chat_history:
-        if isinstance(msg, HumanMessage):
-            dto_list.append({"role": "user", "content": msg.content, "time": ""})
-        elif isinstance(msg, AIMessage):
-            dto_list.append({"role": "assistant", "content": msg.content, "time": ""})
+        role = "user" if msg.get("type") == "USER" else "assistant"
+        dto_list.append({
+            "role": role,
+            "content": msg.get("text"),
+            "time": msg.get("time", "")
+        })
             
     return {"success": True, "message": "Success", "data": dto_list}
+
+@router.post("/clear")
+async def clear_chat_memory(request: Request):
+    """
+    清空当前对话 session 内存，对应 POST /api/ai/clear
+    """
+    auth_header = request.headers.get("Authorization")
+    user_id = get_user_id_from_auth_header(auth_header)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    try:
+        redis_client.delete(f"chat:memory:{user_id}")
+        return {"success": True, "message": "当前会话已重置，开启新对话"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"重置会话失败: {str(e)}")
 
 async def sse_chat_generator(message: str, user_id: str, redis_client_text, redis_client_bin):
     """
@@ -153,6 +174,7 @@ async def sse_chat_generator(message: str, user_id: str, redis_client_text, redi
         # 对话结束，保存新的对话记录至 Redis
         new_history = chat_history + [HumanMessage(content=message), AIMessage(content=full_response)]
         save_chat_history(redis_client_text, user_id, new_history)
+        save_long_term_history(redis_client_text, user_id, message, full_response)
         
         # 写入 [DONE] 结束符，对标 Java SseEmitter complete
         yield "event: complete\n"

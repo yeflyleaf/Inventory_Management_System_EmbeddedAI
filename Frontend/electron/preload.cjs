@@ -5,7 +5,7 @@
  * 2. 可以在这里暴露安全的 API 给前端使用
  * 3. 运行在隔离的上下文中，既能访问 Node.js API，又能访问 DOM
  */
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge } = require('electron')
 
 // 通过 contextBridge 将 API 暴露给渲染进程的 window 对象
 // 前端可以通过 window.electronAPI 访问这些方法

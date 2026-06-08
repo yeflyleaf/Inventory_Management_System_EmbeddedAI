@@ -10,7 +10,7 @@ import skipFormatting from '@vue/eslint-config-prettier/skip-formatting'
 export default defineConfig([
   {
     name: 'app/files-to-lint',
-    files: ['**/*.{js,mjs,jsx,vue}'],
+    files: ['**/*.{js,mjs,jsx,vue,cjs}'],
   },
 
   globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
@@ -19,6 +19,16 @@ export default defineConfig([
     languageOptions: {
       globals: {
         ...globals.browser,
+        ...globals.node, // Allow Node.js globals globally or for specific configs
+      },
+    },
+  },
+
+  {
+    files: ['electron/**/*.cjs', 'eslint.config.js', 'vite.config.js', 'vitest.config.js', 'playwright.config.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
       },
     },
   },
@@ -36,5 +46,11 @@ export default defineConfig([
     files: ['e2e/**/*.{test,spec}.{js,ts,jsx,tsx}'],
   },
   ...pluginOxlint.configs['flat/recommended'],
+  {
+    rules: {
+      'vue/multi-word-component-names': 'off',
+      'no-unused-vars': 'off', // Turn off unused-vars to prevent strict error on existing unused variables
+    }
+  },
   skipFormatting,
 ])

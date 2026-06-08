@@ -56,8 +56,8 @@ services:
       # 覆盖 application.properties 中的 Windows 路径，确保写入挂载点 /app/uploads
       - FILE_UPLOAD_PATH=/app/uploads
     volumes:
-      - D:/OneDrive/Desktop/Uploads:/app/uploads
-      - D:/OneDrive/Desktop/Logs/Backend:/app/logs
+      - ./uploads:/app/uploads
+      - ./logs/backend:/app/logs
     depends_on:
       redis:
         condition: service_healthy
@@ -90,7 +90,7 @@ services:
       # - "443:443"
     volumes:
       # - ./ssl:/etc/nginx/ssl:ro
-      - D:/OneDrive/Desktop/Logs/Nginx:/var/log/nginx
+      - ./logs/nginx:/var/log/nginx
     environment:
       - TZ=${TZ:-Asia/Shanghai}
       - DOMAIN_NAME=${DOMAIN_NAME:-localhost}

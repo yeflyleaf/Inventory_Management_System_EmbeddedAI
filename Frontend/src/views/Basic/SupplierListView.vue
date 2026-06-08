@@ -166,7 +166,6 @@ const form = ref({
   id: null,
   name: '',
   contactPerson: '',
-  contactPerson: '',
   phone: '',
   phone2: '',
   address: '',

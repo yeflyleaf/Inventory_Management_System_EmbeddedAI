@@ -55,7 +55,7 @@ function isSafeUrl(url) {
 
     // 默认拦截所有其他未知域名
     return false
-  } catch (e) {
+  } catch {
     // URL 解析失败视为不安全
     return false
   }
