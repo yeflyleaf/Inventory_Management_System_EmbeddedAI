@@ -121,7 +121,35 @@ RUN rm -f /docker-entrypoint.d/30-tune-worker-processes.sh && \
 
 EXPOSE 80 443
 
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:80/health || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
+
+
+# ============================================================================
+# 阶段 5: ai-service - Python AI 微服务
+# ============================================================================
+FROM python:3.11-slim AS ai-service
+
+WORKDIR /app
+
+# 安装必要的系统依赖 (如 curl 用于 healthcheck，构建工具用于依赖编译)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制并安装依赖
+COPY AiService/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 复制微服务源码
+COPY AiService/ ./
+
+EXPOSE 8000
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD curl -fs http://localhost:8000/openapi.json || exit 1
+
+# 启动服务
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

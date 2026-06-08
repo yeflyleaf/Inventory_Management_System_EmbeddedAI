@@ -26,7 +26,7 @@ public class WebConfig implements WebMvcConfigurer {
         // 认证拦截器 - 验证用户登录状态
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/**")
-                .excludePathPatterns("/auth/**", "/error", "/uploads/**", "/system/**");
+                .excludePathPatterns("/auth/**", "/error", "/uploads/**", "/system/**", "/internal/ai/**");
         
         // 管理员权限拦截器 - 验证管理员权限（需要在认证拦截器之后）
         registry.addInterceptor(adminInterceptor)

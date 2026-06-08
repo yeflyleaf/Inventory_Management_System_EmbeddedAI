@@ -43,6 +43,16 @@ Frontend/playwright-report
 Frontend/e2e
 
 # ================================
+# Python / AiService 忽略
+# ================================
+AiService/__pycache__
+AiService/.pytest_cache
+AiService/venv
+AiService/.venv
+*.pyc
+*.pyo
+
+# ================================
 # Docker 相关（避免循环）
 # ================================
 docker-compose.yml

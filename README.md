@@ -19,7 +19,8 @@
   <a href="https://mybatis.org/mybatis-3/"><img src="https://img.shields.io/badge/ORM-MyBatis%203.0.5-black?style=flat-square" alt="MyBatis"></a>
   <a href="https://www.mysql.com/"><img src="https://img.shields.io/badge/DB-MySQL%208.0-4479A1?style=flat-square&logo=mysql&logoColor=white" alt="MySQL"></a>
   <a href="https://redis.io/"><img src="https://img.shields.io/badge/Vector%20DB-Redis%20Stack-red?style=flat-square&logo=redis" alt="Redis Stack"></a>
-  <a href="https://github.com/langchain4j/langchain4j"><img src="https://img.shields.io/badge/AI%20Framework-LangChain4j%200.31.0-orange?style=flat-square" alt="LangChain4j"></a>
+  <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/AI%20Microservice-FastAPI%200.115.0-009688?style=flat-square&logo=fastapi" alt="FastAPI"></a>
+  <a href="https://python.langchain.com/"><img src="https://img.shields.io/badge/AI%20Framework-LangChain-orange?style=flat-square" alt="LangChain"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%203.0-orange?style=flat-square" alt="License"></a>
 </p>
 
@@ -29,7 +30,7 @@
 
 **Inventory Management System with Embedded AI** 是一套专为中小微企业定制的现代化、智能化进销存与仓储管理系统（ERP）。系统聚焦于核心业务流：采购入库、销售出库、库存流转，以及后台系统数据管控，协助企业告别传统手工台账，提升供应链协同效率并降低运营成本。
 
-在系统的最新架构升级中，**深度集成了生成式大语言模型（LLM）与检索增强生成（RAG）技术**。通过引入 **LangChain4j** 框架与 **Redis Stack 向量数据库**，我们打造了具备全局业务感知能力的 **AI 智能仓储助手**。用户可以使用自然语言进行模糊搜索、低库存查询、分类占比统计并自动生成合理的补货建议，实现人机协同的现代化数字化管理。
+在系统的最新架构升级中，我们引入了**微服务架构**，将原有的 Java 单体 AI 模块拆分为独立的 **Python FastAPI 智能微服务 (AiService)**。通过结合 **LangChain** 框架与 **Redis Stack 向量搜索引擎**，我们打造了具备全局业务感知能力的 **AI 智能仓储助手**。Nginx 作为 API 网关无缝路由前端的 AI 问答流，而独立的 Python 节点专职处理自然语言语义搜索、向量映射和速率限制 (RPM/TPM/RPD)，实现极其灵活且高性能的人机协同现代化管理。
 
 ---
 
@@ -49,14 +50,16 @@
 
 ### AI 嵌入与核心架构六大支柱
 
-| 核心组件           | 技术实现                       | 功能描述                                                                    |
-| :----------------- | :----------------------------- | :-------------------------------------------------------------------------- |
-| **智能对话服务**   | **SSE / SseEmitter**           | 提供类似 ChatGPT 的流式问答面板，且不同账号的聊天历史互不影响。             |
-| **RAG 语义搜索**   | **LangChain4j + Redis Stack**  | 支持用大白话模糊搜索商品（例如输入“数码产品”，智能找出手机、电脑等商品）。  |
-| **智能工具调用**   | **Function Calling (`@Tool`)** | 允许 AI 在回答问题时，自己决定调用后台接口查询实时的库存和统计数据。        |
-| **异步向量同步**   | **Spring AOP + `@Async`**      | 当商品发生增删改时，AI 脑子里的商品数据会自动在后台同步，不卡顿系统。       |
-| **多端跨平台支持** | **Electron + Capacitor**       | 使用同一套网页前端代码，可以同时打包并运行在浏览器、电脑软件和手机 App 上。 |
-| **基础进销存业务** | **Spring Boot 3 + ECharts**    | 包含常规的采购、销售和库存管理，并用图表展示业务报表，支持扫码记账。        |
+| 核心组件           | 技术实现                       | 功能描述                                                                        |
+| :----------------- | :----------------------------- | :------------------------------------------------------------------------------ |
+| **独立 AI 微服务** | **Python + FastAPI**           | 剥离 AI 算力，独立的 Python 微服务节点专职提供流式大语言模型推理及速率控制。    |
+| **智能对话服务**   | **SSE (Server-Sent Events)**   | 提供类似 ChatGPT 的流式打字机问答面板，并在 Redis 中进行高速 Token 记忆与限流。 |
+| **RAG 语义搜索**   | **LangChain + Redis Stack**    | 支持用大白话模糊搜索商品（例如输入“数码产品”，智能找出手机、电脑等商品）。      |
+| **智能工具调用**   | **Function Calling (`@tool`)** | AI 智能体跨语言 Callback 内部 Java 安全端点，获取实时库存和统计数据。           |
+| **异步向量同步**   | **Spring AOP + HTTP Call**     | 当商品发生增删改时，Java 后端会自动通过 HTTP 异步通知 Python 微服务刷新向量。   |
+| **API 统一网关**   | **Nginx 反向代理**             | 将前端请求透明地分流：`/api/ai` 路由到 Python，`/api` 其他接口路由到 Java。     |
+| **多端跨平台支持** | **Electron + Capacitor**       | 使用同一套网页前端代码，可以同时打包并运行在浏览器、电脑软件和手机 App 上。     |
+| **基础进销存业务** | **Spring Boot 3 + ECharts**    | 包含常规的采购、销售和库存管理，并用图表展示业务报表，支持扫码记账。            |
 
 ---
 
@@ -77,23 +80,29 @@
 │   ├── android/                     # Capacitor 适配生成的原生安卓工程
 │   ├── vite.config.js               # Vite 核心配置 (端口转发与打包策略)
 │   └── package.json                 # 前端工程配置与自动化脚本
-├── Backend/                         # Java Spring Boot 后端主工程
+├── AiService/                       # Python FastAPI AI 微服务工程
+│   ├── agent.py                     # LangChain 智能体与 Sentence-Transformers 检索逻辑
+│   ├── main.py                      # FastAPI 主入口点与异常全局拦截器
+│   ├── rate_limiter.py              # Redis RPM/TPM/RPD 频控限流策略
+│   ├── router.py                    # API 路由与 Server-Sent Events 流式生成器
+│   ├── tools.py                     # AI 函数调用回调工具 (对接 Java 端点)
+│   └── requirements.txt             # Python 依赖清单
+├── Backend/                         # Java Spring Boot 核心业务工程
 │   ├── src/main/java/               # 业务源码目录
 │   │   └── com/example/backend/
-│   │       ├── aspect/              # AOP 切面 (ProductEmbeddingAspect.java 异步向量同步)
-│   │       ├── config/              # 配置类 (AiVectorConfig.java 注入 LLM 与 Redis 向量存储)
-│   │       ├── controller/          # 接口控制器 (AiController.java, ProductController.java 等)
+│   │       ├── aspect/              # AOP 切面 (ProductEmbeddingAspect 触发向量同步)
+│   │       ├── controller/          # 业务控制器及 InternalAiToolController (供 Python 回调)
 │   │       ├── mapper/              # MyBatis Mapper 接口定义
 │   │       ├── model/               # 实体类、DTO、VO 等数据模型
-│   │       └── service/             # 业务服务层 (含 AI 助手接口及自定义 `@Tool` 工具函数)
+│   │       └── service/             # 业务服务层 (商品、订单、统计核心逻辑)
 │   ├── src/main/resources/          # 配置文件与静态资源
-│   │   ├── application.properties   # 核心配置文件 (含数据库、Redis 向量库及 LLM 参数)
+│   │   ├── application.properties   # 核心配置 (MySQL、Redis 及 Python 节点地址)
 │   │   ├── schema.sql               # 数据库初始化结构脚本
 │   │   └── data.sql                 # 演示环境基础数据脚本
 │   └── pom.xml                      # 后端 Maven 依赖配置文件
-├── docker-compose.yml               # 集成 Redis Stack Server 等容器一键编排配置
-├── Dockerfile                       # 多阶段镜像打包构建文件 (含前后端托管与运行)
-├── nginx.conf                       # Nginx 高级负载、伪静态及跨域转发规则模板
+├── docker-compose.yml               # 集成微服务架构一键编排 (Nginx, Java, Python, Redis)
+├── Dockerfile                       # 多阶段镜像打包构建文件 (含环境托管与运行)
+├── nginx.conf                       # Nginx 网关配置 (路由 /api/ai 到 Python，其余到 Java)
 ├── .env.example                     # 部署环境隔离变量模板 (需拷贝为 .env)
 └── README.md                        # 项目技术文档与开发手册
 ```
@@ -102,12 +111,13 @@
 
 ## 🛠️ 技术栈清单 (Tech Stack)
 
-### 后端核心技术与 AI
+### 核心技术栈与微服务
 
-- **基础框架**: Spring Boot 3.3.2
-- **AI 开发框架**: LangChain4j 0.31.0
+- **Java 业务服务**: Spring Boot 3.3.2
+- **Python AI 服务**: FastAPI 0.115 + Uvicorn
+- **AI 智能体框架**: LangChain (Python) + LangChain OpenAI
 - **向量数据库**: Redis Stack (内置 RediSearch 模块，用于高维向量检索)
-- **向量嵌入模型**: AllMiniLmL6V2 (384维本地轻量化嵌入模型)
+- **向量嵌入模型**: Sentence-Transformers (All-MiniLM-L6-v2 384维本地模型)
 - **持久层框架**: MyBatis Starter 3.0.5 + MySQL 8.0
 - **核心工具**: ZXing 3.5.2 (条形码处理), Spring AOP + `@Async` (异步向量同步)
 - **基础缓存**: Spring Boot Starter Data Redis
@@ -132,7 +142,7 @@
 - **前端运行环境**: Node.js v20.19.0+ 或 v22.12.0+
 - **构建管理工具**: Maven 3.8+ (或使用自带的 `./mvnw` / `mvnw.cmd`)
 - **容器与数据库**: Docker & Docker Compose
-- **大模型 API Key**: 兼容 OpenAI 协议的 API（如 OpenAI 官方、DeepSeek、硅基流动等）
+- **大模型 API Key**: 兼容 OpenAI 协议的 API（如 OpenAI、Gemini、硅基流动等）
 - **数据库**: MySQL 8.0+
 
 ### 2. 运行前端工程
@@ -153,9 +163,9 @@ npm run dev
 npm run electron:dev
 ```
 
-### 3. 运行后端服务
+### 3. 启动微服务群
 
-#### 编译并启动
+#### 启动 Java 核心业务服务
 
 进入后端工程目录并执行：
 
@@ -164,7 +174,25 @@ cd Backend
 ./mvnw.cmd spring-boot:run
 ```
 
-服务启动成功后将监听地址: **http://localhost:8080**
+Java 服务将运行于 **http://localhost:8080**。
+
+### 4. 启动 Python AI 微服务
+
+打开新终端，进入 AI 服务目录，创建虚拟环境并安装依赖后启动：
+
+```bash
+cd AiService
+python -m venv venv
+# Windows 激活虚拟环境:
+.\venv\Scripts\activate
+# Linux/macOS 使用: source venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Python 服务将运行于 **http://localhost:8000**。
+
+_(注：前端开发环境已在 `vite.config.js` 中配置了多端反向代理，开发阶段无需强制配置本地 Nginx 即可正常进行请求转发与跨域处理)_
 
 ---
 

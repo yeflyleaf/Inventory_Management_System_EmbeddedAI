@@ -97,6 +97,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      ai-service:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - inventory_network
@@ -108,6 +110,43 @@ services:
       driver: "json-file"
       options:
         max-size: "20m"
+        max-file: "5"
+
+  # --- AI 微服务 (Python FastAPI) ---
+  ai-service:
+    image: yeflyleaf/python-ai-service:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ai-service
+    container_name: inventory_ai
+    expose:
+      - "8000" # 仅供内部或 Nginx 访问
+    environment:
+      # 依赖的核心服务地址
+      - JAVA_BACKEND_URL=http://backend:8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - OPENAI_API_KEY=${AI_API_KEY:-}
+      - OPENAI_API_BASE=${AI_BASE_URL:-}
+      - OPENAI_MODEL_NAME=${AI_MODEL_NAME:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - inventory_network
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/openapi.json"]
+      interval: 30s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
         max-file: "5"
 
 volumes:

@@ -259,15 +259,10 @@ const sendMessage = async () => {
   isLoading.value = true
   scrollToBottom()
 
-  // 2. 新增 AI 占位消息，准备打字机流式接收数据
-  const assistantMsgIndex = messages.value.push({
-    role: 'assistant',
-    content: '',
-    time: ''
-  }) - 1
-
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
   const url = `${baseUrl}/ai/chat?message=${encodeURIComponent(query)}`
+
+  let assistantMsgIndex = -1
 
   try {
     const response = await fetch(url, {
@@ -288,15 +283,15 @@ const sendMessage = async () => {
           throw new Error(errJson.message)
         }
       } catch (e) {
-        // Ignore parsing errors, fall back to default status message
+        // Ignore parsing errors
       }
       throw new Error(`连接服务失败，状态码: ${response.status}`)
     }
 
-    isLoading.value = false // 收到首帧后关闭 Loading 指示器
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let currentEvent = 'message'
 
     while (true) {
       const { value, done } = await reader.read()
@@ -310,31 +305,65 @@ const sendMessage = async () => {
       buffer = lines.pop()
 
       for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed) continue
+        const trimmedLine = line.trim()
+        if (!trimmedLine) continue
 
-        if (trimmed.startsWith('data:')) {
-          const dataContent = trimmed.slice(5).trim()
-          
-          // 判断是否是 complete 事件发出的完成信号
-          if (dataContent === '[DONE]') {
-            continue
+        if (line.startsWith('event:')) {
+          currentEvent = line.slice(6).trim()
+        } else if (line.startsWith('data:')) {
+          let dataContent = line.slice(5)
+          // 标准 SSE 规范：如果 data: 后面有空格，则去掉首个空格
+          if (dataContent.startsWith(' ')) {
+            dataContent = dataContent.slice(1)
           }
-          
-          // 拼接打字机 Token
-          messages.value[assistantMsgIndex].content += dataContent
-          messages.value[assistantMsgIndex].time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          scrollToBottom()
-        } else if (trimmed.startsWith('event:error')) {
-          // 捕获错误事件
-          throw new Error('AI 生成时发生内部错误')
+
+          if (currentEvent === 'error') {
+            throw new Error(dataContent || 'AI 生成时发生内部错误')
+          } else if (currentEvent === 'complete' || dataContent === '[DONE]') {
+            currentEvent = 'message' // 重置状态
+            continue
+          } else {
+            // 收到第一帧数据，关闭思考状态，并创建助手消息气泡
+            if (assistantMsgIndex === -1) {
+              isLoading.value = false
+              assistantMsgIndex = messages.value.push({
+                role: 'assistant',
+                content: '',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              }) - 1
+            }
+            
+            // 拼接打字机 Token，保留空格与换行
+            messages.value[assistantMsgIndex].content += dataContent
+            scrollToBottom()
+          }
         }
       }
     }
+
+    // 确保没有空白回答
+    if (assistantMsgIndex === -1) {
+      isLoading.value = false
+      messages.value.push({
+        role: 'assistant',
+        content: 'AI 助手未返回任何有效回复。请尝试重新提问或检查后台服务。',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+    } else if (!messages.value[assistantMsgIndex].content.trim()) {
+      messages.value[assistantMsgIndex].content = 'AI 助手返回了空回复。请尝试重新提问。'
+    }
+
   } catch (error) {
     isLoading.value = false
-    messages.value[assistantMsgIndex].content = `请求失败: ${error.message}。请检查网络连接或接口配置。`
-    messages.value[assistantMsgIndex].time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    if (assistantMsgIndex === -1) {
+      messages.value.push({
+        role: 'assistant',
+        content: `请求失败: ${error.message}。请检查网络连接或接口配置。`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+    } else {
+      messages.value[assistantMsgIndex].content += `\n\n[生成中断: ${error.message}]`
+    }
     scrollToBottom()
   }
 }

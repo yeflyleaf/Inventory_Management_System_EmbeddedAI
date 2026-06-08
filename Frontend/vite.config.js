@@ -48,11 +48,16 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 5173, // <--- 设置前端端口
     proxy: {
+      // AI 微服务代理 (必须放在 /api 前面，以防被覆盖)
+      '/api/ai': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ai/, '/ai'),
+      },
+      // Java 后端代理
       '/api': {
         target: 'http://localhost:8080', // <--- 设置后端地址
-        changeOrigin: true, // 解决跨域头问题
-        // 为了区分哪些请求是发给后端的（API请求），哪些是获取静态资源的（图片、JS），我们约定所有 API 请求都加上 /api 前缀
-        // 然后根据后端接口的前缀，将 /api 前缀去掉，这样后端就能正确处理请求了
+        changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
       '/uploads': {
