@@ -126,7 +126,7 @@ ssl/*.csr
 *.xlsx
 *.xls
 prompt.md
-.github/*.md
+.github/*
 # Archives
 *.zip
 *.tar
